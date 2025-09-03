@@ -1,0 +1,27 @@
+[
+  {
+    "origin": [
+      "http://localhost:8082",
+      "http://localhost:3000",
+      "http://localhost:19006",
+      "https://studypro-4ca11.firebaseapp.com"
+    ],
+    "method": [
+      "GET",
+      "POST",
+      "PUT",
+      "DELETE",
+      "HEAD",
+      "OPTIONS"
+    ],
+    "maxAgeSeconds": 3600,
+    "responseHeader": [
+      "Content-Type",
+      "Authorization",
+      "Content-Length",
+      "X-Goog-Resumable",
+      "X-Goog-Encryption-Algorithm",
+      "X-Goog-Meta-*"
+    ]
+  }
+]
