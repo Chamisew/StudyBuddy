@@ -1,9 +1,12 @@
-import React, { useEffect, useState } from "react";
-import { SafeAreaView, View, Text, FlatList, TouchableOpacity, StyleSheet, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
+import { collection, doc, getDoc, getDocs, onSnapshot, query, setDoc, where } from "firebase/firestore";
+import { useEffect, useState, useCallback } from "react";
+import { Alert, FlatList, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { GalaxyAnimation } from "../components/GalaxyAnimation";
+import { GalaxyColors } from "../constants/GalaxyColors";
 import { auth, db } from "../firebase/firebaseConfig";
-import { collection, doc, getDoc, getDocs, orderBy, query, setDoc, where, onSnapshot } from "firebase/firestore";
-import { useRouter } from "expo-router";
+import { smartNavigateBack } from "../utils/navigation";
 
 // Firestore layout:
 // helpdeskApplicants/{uid}: { subjects: [..], bio, status: 'pending'|'approved'|'rejected' }
@@ -12,32 +15,184 @@ import { useRouter } from "expo-router";
 
 export default function HelpdeskScreen() {
   const router = useRouter();
-  const [subjects, setSubjects] = useState(["All", "Math", "Physics", "Chemistry", "Biology", "English", "History"]);
+  const params = useLocalSearchParams(); // Get URL parameters
+  const [subjects, setSubjects] = useState([
+    "All", 
+    "Mathematics", 
+    "Physics", 
+    "Chemistry", 
+    "Biology", 
+    "English", 
+    "History", 
+    "Geography", 
+    "Computer Science", 
+    "Economics", 
+    "Psychology", 
+    "Art & Design", 
+    "Music", 
+    "Languages", 
+    "Business Studies", 
+    "Engineering"
+  ]);
   const [selectedSubject, setSelectedSubject] = useState("All");
   const [helpers, setHelpers] = useState([]);
-  const [isApprovedTutor, setIsApprovedTutor] = useState(false);
+  const [isApprovedHelper, setIsApprovedHelper] = useState(false);
+  const [hasLeftProgram, setHasLeftProgram] = useState(false); // Track if user left the program
   const [studentChats, setStudentChats] = useState([]);
-  const [viewMode, setViewMode] = useState('helpers'); // 'helpers' or 'chats'
+  const [viewMode, setViewMode] = useState('chats'); // 'helpers' or 'chats'
+  const [refreshKey, setRefreshKey] = useState(0); // Key to force re-render
 
-  // Check if current user is an approved tutor
+  const refreshHelperStatus = async () => {
+    try {
+      const uid = auth.currentUser?.uid;
+      if (!uid) return;
+      
+      const helperDoc = await getDoc(doc(db, "helpdeskHelpers", uid));
+      if (helperDoc.exists()) {
+        const helperData = helperDoc.data();
+        // Check if helper has left the program
+        if (helperData.left) {
+          setIsApprovedHelper(false);
+          setHasLeftProgram(true);
+        } else {
+          setIsApprovedHelper(true);
+          setHasLeftProgram(false);
+        }
+      } else {
+        setIsApprovedHelper(false);
+        setHasLeftProgram(false);
+      }
+    } catch (error) {
+      console.error("Error checking helper status:", error);
+    }
+  };
+
+  const rejoinHelperProgram = async () => {
+    try {
+      const uid = auth.currentUser?.uid;
+      if (!uid) return;
+
+      console.log('📋 [HELPDESK] Rejoining helper program for UID:', uid);
+      
+      // Remove the 'left' flag to reactivate helper status
+      await setDoc(doc(db, "helpdeskHelpers", uid), { 
+        left: false,
+        rejoinedAt: new Date()
+      }, { merge: true });
+      
+      console.log('📋 [HELPDESK] Helper status reactivated');
+      setIsApprovedHelper(true);
+      setHasLeftProgram(false);
+      Alert.alert("Welcome Back!", "Your helper status has been reactivated. You can now help students again!");
+    } catch (error) {
+      console.error('📋 [HELPDESK] Error rejoining helper program:', error);
+      Alert.alert("Error", "Failed to rejoin helper program. Please try again.");
+    }
+  };
+
+  // Check if current user is an approved helper (could be student or tutor)
   useEffect(() => {
-    const checkTutorStatus = async () => {
+    const checkHelperStatus = async () => {
       try {
         const uid = auth.currentUser?.uid;
-        if (!uid) return;
+        if (!uid) {
+          console.log('📋 [HELPDESK] No authenticated user');
+          return;
+        }
         
+        console.log('📋 [HELPDESK] Checking helper status for UID:', uid);
+        
+        // First check if user exists in helpdeskHelpers collection
         const helperDoc = await getDoc(doc(db, "helpdeskHelpers", uid));
-        setIsApprovedTutor(helperDoc.exists());
+        console.log('📋 [HELPDESK] Helper document exists:', helperDoc.exists());
+        
+        if (helperDoc.exists()) {
+          const helperData = helperDoc.data();
+          console.log('📋 [HELPDESK] Helper data:', helperData);
+          
+          // Check if helper has left the program
+          if (helperData.left) {
+            console.log('📋 [HELPDESK] Helper has left the program');
+            setIsApprovedHelper(false);
+            setHasLeftProgram(true);
+          } else {
+            console.log('📋 [HELPDESK] Helper is active - setting isApprovedHelper to true');
+            setIsApprovedHelper(true);
+            setHasLeftProgram(false);
+          }
+        } else {
+          console.log('📋 [HELPDESK] No helper document found - setting isApprovedHelper to false');
+          setIsApprovedHelper(false);
+          setHasLeftProgram(false);
+        }
       } catch (error) {
-        console.error("Error checking tutor status:", error);
+        console.error("📋 [HELPDESK] Error checking helper status:", error);
+        setIsApprovedHelper(false);
       }
     };
-    checkTutorStatus();
-  }, []);
+    checkHelperStatus();
+  }, [refreshKey]); // Depend on refreshKey to force re-check
 
-  // Load student chats for approved tutors
+  // Listen for refresh parameter changes
   useEffect(() => {
-    if (!isApprovedTutor) return;
+    // When refresh parameter changes, increment refreshKey to force re-render
+    setRefreshKey(prev => prev + 1);
+  }, [params.refresh]); // Depend on refresh parameter
+
+  // Refresh helper status when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      console.log('📋 [HELPDESK] Screen focused, checking helper status');
+      const checkHelperStatusOnFocus = async () => {
+        try {
+          const uid = auth.currentUser?.uid;
+          if (!uid) {
+            console.log('📋 [HELPDESK] Focus check - No authenticated user');
+            return;
+          }
+          
+          console.log('📋 [HELPDESK] Focus check - UID:', uid);
+          const helperDoc = await getDoc(doc(db, "helpdeskHelpers", uid));
+          console.log('📋 [HELPDESK] Focus check - Helper document exists:', helperDoc.exists());
+          
+          if (helperDoc.exists()) {
+            const helperData = helperDoc.data();
+            console.log('📋 [HELPDESK] Focus check - Helper data:', helperData);
+            
+            // Check if helper has left the program
+            if (helperData.left) {
+              console.log('📋 [HELPDESK] Focus check - User has left helper program');
+              setIsApprovedHelper(false);
+              setHasLeftProgram(true);
+            } else {
+              console.log('📋 [HELPDESK] Focus check - User is active helper, setting state to true');
+              setIsApprovedHelper(true);
+              setHasLeftProgram(false);
+            }
+          } else {
+            // Also check applicant status for debugging
+            const applicantDoc = await getDoc(doc(db, "helpdeskApplicants", uid));
+            if (applicantDoc.exists()) {
+              const applicantData = applicantDoc.data();
+              console.log('📋 [HELPDESK] Focus check - Applicant status:', applicantData.status);
+            }
+            
+            console.log('📋 [HELPDESK] Focus check - No helper document found, setting state to false');
+            setIsApprovedHelper(false);
+            setHasLeftProgram(false);
+          }
+        } catch (error) {
+          console.error('📋 [HELPDESK] Error checking helper status on focus:', error);
+          setIsApprovedHelper(false);
+        }
+      };
+      checkHelperStatusOnFocus();
+    }, [])
+  );
+
+  // Load student chats for approved helpers
+  useEffect(() => {
+    if (!isApprovedHelper) return;
     
     const uid = auth.currentUser?.uid;
     if (!uid) return;
@@ -58,9 +213,9 @@ export default function HelpdeskScreen() {
             chats.push({
               id: studentId,
               studentId: studentId,
-              studentName: studentData.fullName || studentData.name || studentData.email || studentId,
+              studentName: studentData.fullName || studentData.name || studentData.displayName || studentData.email || studentId,
               lastMessageAt: data.lastMessageAt,
-              peerName: data.peerName || studentData.fullName || studentData.name || studentData.email || studentId
+              peerName: data.peerName || studentData.fullName || studentData.name || studentData.displayName || studentData.email || studentId
             });
           } catch (error) {
             console.error("Error fetching student data:", error);
@@ -87,14 +242,15 @@ export default function HelpdeskScreen() {
     );
 
     return () => unsubscribe();
-  }, [isApprovedTutor]);
+  }, [isApprovedHelper]);
 
-  // Load helpers for students
+  // Load helpers for users (when viewing helpers tab or when user is not a helper)
   useEffect(() => {
-    if (isApprovedTutor && viewMode === 'chats') return; // Don't load helpers if tutor is viewing chats
+    if (isApprovedHelper && viewMode === 'chats') return; // Don't load helpers if helper is viewing chats
     
     const run = async () => {
       try {
+        const currentUid = auth.currentUser?.uid;
         const q = selectedSubject === 'All'
           ? query(collection(db, "helpdeskHelpers"))
           : query(collection(db, "helpdeskHelpers"), where("subjects", "array-contains", selectedSubject));
@@ -102,9 +258,27 @@ export default function HelpdeskScreen() {
         const list = [];
         for (const d of snap.docs) {
           const data = d.data();
+          // For helpers, exclude themselves from the list
+          if (isApprovedHelper && d.id === currentUid) continue;
+          
+          // Skip helpers who have left the program
+          if (data.left) continue;
+          
+          // Get user's full name from users collection
+          let displayName = data.name || data.email || "Helper";
+          try {
+            const userDoc = await getDoc(doc(db, "users", d.id));
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              displayName = userData.fullName || userData.name || userData.displayName || data.name || data.email || "Helper";
+            }
+          } catch (error) {
+            console.log("Error fetching user data for helper:", error);
+          }
+          
           list.push({ 
             id: d.id, 
-            name: data.name || data.email || "Helper", 
+            name: displayName, 
             subjects: data.subjects || [], 
             rating: data.rating || 0, 
             bio: data.bio || "" 
@@ -116,7 +290,7 @@ export default function HelpdeskScreen() {
       }
     };
     run();
-  }, [selectedSubject, isApprovedTutor, viewMode]);
+  }, [selectedSubject, isApprovedHelper, viewMode]);
 
   const startChat = async (helperId, helperName) => {
     try {
@@ -183,13 +357,20 @@ export default function HelpdeskScreen() {
 
   const renderHelper = ({ item }) => (
     <View style={styles.helperCard}>
-      <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
-        <View style={styles.avatar}><Text style={styles.avatarText}>{item.name.charAt(0)}</Text></View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.helperName}>{item.name}</Text>
-          <Text style={styles.helperSubjects}>{item.subjects.join(", ")}</Text>
+      <View style={styles.helperInfo}>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>{item.name.charAt(0)}</Text>
         </View>
-        <View style={styles.rating}><Ionicons name="star" size={14} color="#FFD700" /><Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text></View>
+        <View style={styles.helperDetails}>
+          <Text style={styles.helperName}>{item.name}</Text>
+          <Text style={styles.helperSubjects} numberOfLines={1}>
+            {item.subjects.join(", ")}
+          </Text>
+          <View style={styles.ratingContainer}>
+            <Ionicons name="star" size={14} color={GalaxyColors.light.accent} />
+            <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
+          </View>
+        </View>
       </View>
       <TouchableOpacity style={styles.chatBtn} onPress={() => startChat(item.id, item.name)}>
         <Ionicons name="chatbubbles-outline" size={18} color="#fff" />
@@ -200,14 +381,16 @@ export default function HelpdeskScreen() {
 
   const renderStudentChat = ({ item }) => (
     <View style={styles.helperCard}>
-      <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
-        <View style={styles.avatar}><Text style={styles.avatarText}>{item.studentName.charAt(0)}</Text></View>
-        <View style={{ flex: 1 }}>
+      <View style={styles.helperInfo}>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>{item.studentName.charAt(0)}</Text>
+        </View>
+        <View style={styles.helperDetails}>
           <Text style={styles.helperName}>{item.studentName}</Text>
           <Text style={styles.helperSubjects}>Student</Text>
           {item.lastMessageAt && (
             <Text style={styles.lastMessage}>
-              Last message: {new Date(item.lastMessageAt.seconds * 1000).toLocaleDateString()}
+              Last: {new Date(item.lastMessageAt.seconds * 1000).toLocaleDateString()}
             </Text>
           )}
         </View>
@@ -220,133 +403,515 @@ export default function HelpdeskScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton} 
-          onPress={() => router.back()}
-        >
-          <Ionicons name="arrow-back" size={24} color="#333" />
-        </TouchableOpacity>
-        <Text style={styles.title}>Help Desk</Text>
-        {isApprovedTutor && (
-          <TouchableOpacity 
-            style={styles.viewToggle}
-            onPress={() => setViewMode(viewMode === 'helpers' ? 'chats' : 'helpers')}
-          >
-            <Ionicons 
-              name={viewMode === 'helpers' ? 'chatbubbles-outline' : 'people-outline'} 
-              size={24} 
-              color="#007AFF" 
-            />
-          </TouchableOpacity>
-        )}
-      </View>
+    <View style={styles.container}>
+      {/* Galaxy Background Animation */}
+      <GalaxyAnimation style={styles.galaxyAnimation} />
       
-      {isApprovedTutor && viewMode === 'chats' ? (
-        // Tutor view - show student chats
-        <>
-          <View style={styles.headerInfo}>
-            <Text style={styles.headerInfoText}>Your Student Chats</Text>
-            <Text style={styles.subHeaderText}>Students you are helping</Text>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <TouchableOpacity 
+            style={styles.backButton} 
+            onPress={() => smartNavigateBack(router, '/helpdesk')}
+          >
+            <Ionicons name="arrow-back" size={24} color={GalaxyColors.light.icon} />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.title}>Help Desk</Text>
+            <Text style={styles.debugText}>
+              Status: {isApprovedHelper ? 'HELPER ✅' : hasLeftProgram ? 'LEFT PROGRAM 🔄' : 'NOT HELPER ❌'}
+            </Text>
           </View>
-          <FlatList
-            data={studentChats}
-            keyExtractor={(item) => item.id}
-            renderItem={renderStudentChat}
-            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20 }}
-            ListEmptyComponent={
-              <View style={styles.emptyState}>
-                <Ionicons name="chatbubbles-outline" size={64} color="#ccc" />
-                <Text style={styles.emptyText}>No student chats yet</Text>
-                <Text style={styles.emptySubText}>Students will appear here when they start chatting with you</Text>
-              </View>
-            }
-          />
-        </>
-      ) : (
-        // Student view - show available helpers
-        <>
-          <View style={styles.subjectsRow}>
-            {subjects.map((s) => (
+          {!isApprovedHelper ? (
+            hasLeftProgram ? (
               <TouchableOpacity 
-                key={s} 
-                style={[styles.subjectChip, selectedSubject === s && styles.subjectChipActive]} 
-                onPress={() => setSelectedSubject(s)}
+                style={styles.rejoinButton}
+                onPress={rejoinHelperProgram}
               >
-                <Text style={[styles.subjectText, selectedSubject === s && styles.subjectTextActive]}>{s}</Text>
+                <Ionicons name="return-up-back-outline" size={18} color={GalaxyColors.light.success} />
+                <Text style={styles.rejoinButtonText}>Rejoin</Text>
               </TouchableOpacity>
-            ))}
-          </View>
-          <FlatList
-            data={helpers}
-            keyExtractor={(item) => item.id}
-            renderItem={renderHelper}
-            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20 }}
-            ListEmptyComponent={
-              <View style={styles.emptyState}>
-                <Ionicons name="help-buoy-outline" size={64} color="#ccc" />
-                <Text style={styles.emptyText}>No helpers available</Text>
-                <Text style={styles.emptySubText}>Check back later or try a different subject</Text>
-              </View>
-            }
-          />
-        </>
-      )}
-    </SafeAreaView>
+            ) : (
+              <TouchableOpacity 
+                style={styles.applyButton}
+                onPress={() => router.push('/helpdesk-apply')}
+              >
+                <Ionicons name="briefcase-outline" size={18} color={GalaxyColors.light.primary} />
+                <Text style={styles.applyButtonText}>Apply</Text>
+              </TouchableOpacity>
+            )
+          ) : (
+            <View style={{ flexDirection: 'row' }}>
+              <TouchableOpacity 
+                style={styles.updateButton}
+                onPress={() => router.push('/helpdesk-apply')}
+              >
+                <Ionicons name="settings-outline" size={18} color={GalaxyColors.light.success} />
+                <Text style={styles.updateButtonText}>Profile</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.updateButton, { marginLeft: 8 }]}
+                onPress={async () => {
+                  try {
+                    console.log('📋 [HELPDESK] Manual refresh button pressed');
+                    const uid = auth.currentUser?.uid;
+                    if (!uid) {
+                      console.log('📋 [HELPDESK] No authenticated user');
+                      return;
+                    }
+                    
+                    console.log('📋 [HELPDESK] Manual refresh - checking UID:', uid);
+                    const helperDoc = await getDoc(doc(db, "helpdeskHelpers", uid));
+                    console.log('📋 [HELPDESK] Manual refresh - helper doc exists:', helperDoc.exists());
+                    
+                    if (helperDoc.exists()) {
+                      const helperData = helperDoc.data();
+                      console.log('📋 [HELPDESK] Manual refresh - helper data:', helperData);
+                      
+                      // Check if helper has left the program
+                      if (helperData.left) {
+                        console.log('📋 [HELPDESK] Manual refresh - helper has left, offering rejoin option');
+                        setHasLeftProgram(true);
+                        setIsApprovedHelper(false);
+                        
+                        // Ask if user wants to rejoin as helper
+                        Alert.alert(
+                          'Rejoin Helper Program',
+                          'You previously left the helper program. Would you like to rejoin as a helper?',
+                          [
+                            { text: 'Cancel', style: 'cancel' },
+                            { 
+                              text: 'Rejoin', 
+                              onPress: rejoinHelperProgram
+                            }
+                          ]
+                        );
+                      } else {
+                        console.log('📋 [HELPDESK] Manual refresh - helper is active');
+                        setIsApprovedHelper(true);
+                        setHasLeftProgram(false);
+                      }
+                    } else {
+                      console.log('📋 [HELPDESK] Manual refresh - no helper document');
+                      
+                      // Check applicant status
+                      const applicantDoc = await getDoc(doc(db, "helpdeskApplicants", uid));
+                      if (applicantDoc.exists()) {
+                        const applicantData = applicantDoc.data();
+                        console.log('📋 [HELPDESK] Manual refresh - applicant status:', applicantData.status);
+                      }
+                      
+                      setIsApprovedHelper(false);
+                    }
+                  } catch (error) {
+                    console.error("📋 [HELPDESK] Error in manual refresh:", error);
+                  }
+                }}
+              >
+                <Ionicons name="refresh-outline" size={18} color={GalaxyColors.light.icon} />
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+        
+        {isApprovedHelper ? (
+          // Helper view with tabs (for both students and tutors who became helpers)
+          <>
+            <View style={styles.tabContainer}>
+              <TouchableOpacity 
+                style={[styles.tab, viewMode === 'helpers' && styles.activeTab]}
+                onPress={() => setViewMode('helpers')}
+              >
+                <Ionicons 
+                  name="people-outline" 
+                  size={20} 
+                  color={viewMode === 'helpers' ? GalaxyColors.light.primary : GalaxyColors.light.iconSecondary} 
+                />
+                <Text style={[styles.tabText, viewMode === 'helpers' && styles.activeTabText]}>
+                  Helpers
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.tab, viewMode === 'chats' && styles.activeTab]}
+                onPress={() => setViewMode('chats')}
+              >
+                <Ionicons 
+                  name="chatbubbles-outline" 
+                  size={20} 
+                  color={viewMode === 'chats' ? GalaxyColors.light.primary : GalaxyColors.light.iconSecondary} 
+                />
+                <Text style={[styles.tabText, viewMode === 'chats' && styles.activeTabText]}>
+                  My Chats ({studentChats.length})
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {viewMode === 'chats' ? (
+              // Show student chats
+              <>
+                <View style={styles.headerInfo}>
+                  <Text style={styles.headerInfoText}>Your Student Chats</Text>
+                  <Text style={styles.subHeaderText}>Students you are helping</Text>
+                </View>
+                <FlatList
+                  data={studentChats}
+                  keyExtractor={(item) => item.id}
+                  renderItem={renderStudentChat}
+                  contentContainerStyle={styles.listContainer}
+                  ListEmptyComponent={
+                    <View style={styles.emptyState}>
+                      <Ionicons name="chatbubbles-outline" size={64} color={GalaxyColors.light.iconSecondary} />
+                      <Text style={styles.emptyText}>No student chats yet</Text>
+                      <Text style={styles.emptySubText}>Students will appear here when they start chatting with you</Text>
+                    </View>
+                  }
+                />
+              </>
+            ) : (
+              // Show available helpers
+              <>
+                <View style={styles.headerInfo}>
+                  <Text style={styles.headerInfoText}>Available Helpers</Text>
+                  <Text style={styles.subHeaderText}>Connect with other tutors and helpers</Text>
+                </View>
+                <View style={styles.subjectsRow}>
+                  {subjects.map((s) => (
+                    <TouchableOpacity 
+                      key={s} 
+                      style={[styles.subjectChip, selectedSubject === s && styles.subjectChipActive]} 
+                      onPress={() => setSelectedSubject(s)}
+                    >
+                      <Text style={[styles.subjectText, selectedSubject === s && styles.subjectTextActive]}>{s}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <FlatList
+                  data={helpers}
+                  keyExtractor={(item) => item.id}
+                  renderItem={renderHelper}
+                  contentContainerStyle={styles.listContainer}
+                  ListEmptyComponent={
+                    <View style={styles.emptyState}>
+                      <Ionicons name="people-outline" size={64} color={GalaxyColors.light.iconSecondary} />
+                      <Text style={styles.emptyText}>No other helpers available</Text>
+                      <Text style={styles.emptySubText}>Check back later or try a different subject</Text>
+                    </View>
+                  }
+                />
+              </>
+            )}
+          </>
+        ) : (
+          // Regular user view (students who haven't become helpers yet) - show available helpers
+          <>
+            <View style={styles.subjectsRow}>
+              {subjects.map((s) => (
+                <TouchableOpacity 
+                  key={s} 
+                  style={[styles.subjectChip, selectedSubject === s && styles.subjectChipActive]} 
+                  onPress={() => setSelectedSubject(s)}
+                >
+                  <Text style={[styles.subjectText, selectedSubject === s && styles.subjectTextActive]}>{s}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <FlatList
+              data={helpers}
+              keyExtractor={(item) => item.id}
+              renderItem={renderHelper}
+              contentContainerStyle={styles.listContainer}
+              ListEmptyComponent={
+                <View style={styles.emptyState}>
+                  <Ionicons name="help-buoy-outline" size={64} color={GalaxyColors.light.iconSecondary} />
+                  <Text style={styles.emptyText}>No helpers available</Text>
+                  <Text style={styles.emptySubText}>Check back later or try a different subject</Text>
+                </View>
+              }
+            />
+          </>
+        )}
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f5f5" },
+  container: { 
+    flex: 1,
+    backgroundColor: GalaxyColors.light.background,
+  },
+  galaxyAnimation: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    zIndex: 1,
+  },
+  safeArea: {
+    flex: 1,
+    zIndex: 2,
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
-    backgroundColor: "#fff",
+    borderBottomColor: GalaxyColors.light.border,
+    backgroundColor: GalaxyColors.light.surface + 'CC', // Adding transparency
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    backdropFilter: 'blur(10px)', // For web blur effect
   },
   backButton: {
     marginRight: 16,
   },
-  viewToggle: {
-    padding: 8,
+  title: { 
+    fontSize: 22,
+    fontWeight: "700",
+    color: GalaxyColors.light.text,
   },
-  title: { fontSize: 24, fontWeight: "bold", color: "#111", flex: 1 },
+  debugText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: GalaxyColors.light.textSecondary,
+    marginTop: 2,
+  },
+  applyButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: GalaxyColors.light.backgroundSecondary,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: GalaxyColors.light.primary,
+  },
+  applyButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: GalaxyColors.light.primary,
+    marginLeft: 4,
+  },
+  rejoinButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: GalaxyColors.light.backgroundSecondary,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: GalaxyColors.light.success,
+  },
+  rejoinButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: GalaxyColors.light.success,
+    marginLeft: 4,
+  },
+  updateButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: GalaxyColors.light.backgroundSecondary,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: GalaxyColors.light.border,
+  },
+  updateButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: GalaxyColors.light.text,
+    marginLeft: 4,
+  },
+  tabContainer: {
+    flexDirection: "row",
+    backgroundColor: GalaxyColors.light.surface + 'CC', // Adding transparency
+    borderBottomWidth: 1,
+    borderBottomColor: GalaxyColors.light.border,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    backdropFilter: 'blur(10px)', // For web blur effect
+  },
+  tab: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    borderBottomWidth: 3,
+    borderBottomColor: "transparent",
+  },
+  activeTab: {
+    borderBottomColor: GalaxyColors.light.primary,
+    backgroundColor: GalaxyColors.light.backgroundSecondary + '80', // Adding transparency
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: GalaxyColors.light.textSecondary,
+    marginLeft: 8,
+    textAlign: "center",
+  },
+  activeTabText: {
+    color: GalaxyColors.light.primary,
+    fontWeight: "600",
+  },
   headerInfo: {
-    backgroundColor: "#fff",
+    backgroundColor: GalaxyColors.light.surface + 'CC', // Adding transparency
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
+    borderBottomColor: GalaxyColors.light.border,
+    backdropFilter: 'blur(10px)', // For web blur effect
   },
   headerInfoText: {
     fontSize: 18,
-    fontWeight: "600",
-    color: "#333",
+    fontWeight: "700",
+    color: GalaxyColors.light.text,
   },
   subHeaderText: {
     fontSize: 14,
-    color: "#666",
+    color: GalaxyColors.light.textSecondary,
     marginTop: 2,
   },
-  subjectsRow: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 12, marginBottom: 8 },
-  subjectChip: { backgroundColor: "#fff", paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16, margin: 4, borderWidth: 1, borderColor: "#e0e0e0" },
-  subjectChipActive: { backgroundColor: "#007AFF20", borderColor: "#007AFF" },
-  subjectText: { color: "#333" },
-  subjectTextActive: { color: "#007AFF", fontWeight: "600" },
-  helperCard: { backgroundColor: "#fff", marginHorizontal: 16, marginVertical: 8, borderRadius: 12, padding: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  avatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: "#007AFF", justifyContent: "center", alignItems: "center", marginRight: 10 },
-  avatarText: { color: "#fff", fontWeight: "700" },
-  helperName: { fontSize: 16, fontWeight: "600" },
-  helperSubjects: { fontSize: 12, color: "#666", marginTop: 2 },
-  lastMessage: { fontSize: 11, color: "#999", marginTop: 2 },
-  rating: { flexDirection: "row", alignItems: "center", marginLeft: 8 },
-  ratingText: { fontSize: 12, marginLeft: 4 },
-  chatBtn: { flexDirection: "row", alignItems: "center", backgroundColor: "#007AFF", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18 },
-  chatText: { color: "#fff", marginLeft: 6, fontWeight: "600" },
+  subjectsRow: { 
+    flexDirection: "row", 
+    flexWrap: "wrap", 
+    paddingHorizontal: 12, 
+    paddingVertical: 8,
+    backgroundColor: GalaxyColors.light.surface + 'CC', // Adding transparency
+    backdropFilter: 'blur(10px)', // For web blur effect
+  },
+  subjectChip: { 
+    backgroundColor: GalaxyColors.light.backgroundSecondary,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    margin: 4,
+    borderWidth: 1,
+    borderColor: GalaxyColors.light.border,
+  },
+  subjectChipActive: { 
+    backgroundColor: GalaxyColors.light.primary + '20',
+    borderColor: GalaxyColors.light.primary,
+  },
+  subjectText: { 
+    color: GalaxyColors.light.text,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  subjectTextActive: { 
+    color: GalaxyColors.light.primary,
+    fontWeight: "600",
+  },
+  listContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 20,
+    paddingTop: 8,
+  },
+  helperCard: { 
+    backgroundColor: GalaxyColors.light.card,
+    marginVertical: 8,
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    minHeight: 80,
+    borderWidth: 1,
+    borderColor: GalaxyColors.light.cardBorder,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+    backdropFilter: 'blur(10px)', // For web blur effect
+  },
+  helperInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    marginRight: 12,
+  },
+  avatar: { 
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: GalaxyColors.light.primary,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  avatarText: { 
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 16,
+  },
+  helperDetails: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  helperName: { 
+    fontSize: 16,
+    fontWeight: "700",
+    color: GalaxyColors.light.text,
+    marginBottom: 2,
+  },
+  helperSubjects: { 
+    fontSize: 12,
+    color: GalaxyColors.light.textSecondary,
+    marginBottom: 4,
+    maxWidth: 200,
+  },
+  lastMessage: { 
+    fontSize: 11,
+    color: GalaxyColors.light.textTertiary,
+    marginTop: 2,
+  },
+  ratingContainer: { 
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: GalaxyColors.light.backgroundSecondary,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    alignSelf: "flex-start",
+  },
+  ratingText: { 
+    fontSize: 12,
+    marginLeft: 3,
+    color: GalaxyColors.light.accent,
+    fontWeight: "600",
+  },
+  chatBtn: { 
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: GalaxyColors.light.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    minWidth: 80,
+    justifyContent: "center",
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  chatText: { 
+    color: "#fff",
+    marginLeft: 6,
+    fontWeight: "600",
+    fontSize: 14,
+  },
   emptyState: {
     alignItems: "center",
     justifyContent: "center",
@@ -354,18 +919,16 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 18,
-    fontWeight: "600",
-    color: "#666",
+    fontWeight: "700",
+    color: GalaxyColors.light.text,
     marginTop: 16,
   },
   emptySubText: {
     fontSize: 14,
-    color: "#999",
+    color: GalaxyColors.light.textSecondary,
     textAlign: "center",
     marginTop: 8,
     paddingHorizontal: 32,
+    lineHeight: 20,
   },
 });
-
-
-
