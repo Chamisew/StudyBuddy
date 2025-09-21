@@ -1970,7 +1970,7 @@ export default function AdminDashboardScreen() {
         // Create download link
         const link = document.createElement('a');
         link.href = url;
-        link.download = `StudyPro_Admin_Report_${new Date().toISOString().split('T')[0]}.html`;
+        link.download = `StudyBuddy_Admin_Report_${new Date().toISOString().split('T')[0]}.html`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -1994,7 +1994,7 @@ export default function AdminDashboardScreen() {
       if (isAvailable) {
         await Sharing.shareAsync(uri, {
           mimeType: 'application/pdf',
-          dialogTitle: 'Admin Report - StudyPro Platform',
+          dialogTitle: 'Admin Report - StudyBuddy Platform',
           UTI: 'com.adobe.pdf'
         });
       } else {
@@ -2026,7 +2026,7 @@ export default function AdminDashboardScreen() {
         
         const link = document.createElement('a');
         link.href = url;
-        link.download = `StudyPro_Admin_Report_${new Date().toISOString().split('T')[0]}.html`;
+        link.download = `StudyBuddy_Admin_Report_${new Date().toISOString().split('T')[0]}.html`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -2067,7 +2067,7 @@ export default function AdminDashboardScreen() {
         // Create download link
         const link = document.createElement('a');
         link.href = url;
-        link.download = `StudyPro_Admin_Report_${new Date().toISOString().split('T')[0]}.html`;
+        link.download = `StudyBuddy_Admin_Report_${new Date().toISOString().split('T')[0]}.html`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -2095,7 +2095,7 @@ export default function AdminDashboardScreen() {
       if (isAvailable) {
         await Sharing.shareAsync(uri, {
           mimeType: 'application/pdf',
-          dialogTitle: 'StudyPro Admin Report - PDF Download',
+          dialogTitle: 'StudyBuddy Admin Report - PDF Download',
           UTI: 'com.adobe.pdf'
         });
       } else {
@@ -2135,7 +2135,7 @@ File location: ${uri}
         
         const link = document.createElement('a');
         link.href = url;
-        link.download = `StudyPro_Admin_Report_${new Date().toISOString().split('T')[0]}.html`;
+        link.download = `StudyBuddy_Admin_Report_${new Date().toISOString().split('T')[0]}.html`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -2161,7 +2161,7 @@ File location: ${uri}
     <html>
     <head>
         <meta charset="utf-8">
-        <title>StudyPro Admin Report</title>
+        <title>StudyBuddyAdmin Report</title>
         <style>
             body {
                 font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -2323,7 +2323,7 @@ File location: ${uri}
     </head>
     <body>
         <div class="header">
-            <h1>📈 StudyPro Admin Report</h1>
+            <h1>📈 StudyBuddy Admin Report</h1>
             <p>Comprehensive Platform Analytics & Insights</p>
         </div>
         
@@ -2499,7 +2499,7 @@ File location: ${uri}
         </div>
         
         <div class="footer">
-            <p><strong>StudyPro Platform</strong> - Admin Dashboard Report</p>
+            <p><strong>StudyBuddy Platform</strong> - Admin Dashboard Report</p>
             <p>Generated on ${currentDate} at ${currentTime}</p>
             <p>This report contains confidential platform analytics. Handle with care.</p>
         </div>
