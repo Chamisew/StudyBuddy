@@ -15,6 +15,7 @@ import {
     View
 } from 'react-native';
 import { auth, db } from '../firebase/firebaseConfig';
+import { smartNavigateBack } from '../utils/navigation';
 
 const { width } = Dimensions.get('window');
 
@@ -59,12 +60,12 @@ export default function PlayWordPuzzle() {
         initializeGame(data);
       } else {
         Alert.alert('Error', 'Game not found');
-        router.back();
+        smartNavigateBack(router, '/play-word-puzzle');
       }
     } catch (error) {
       console.error('Error loading game:', error);
       Alert.alert('Error', 'Failed to load game');
-      router.back();
+      smartNavigateBack(router, '/play-word-puzzle');
     } finally {
       setLoading(false);
     }
@@ -78,7 +79,7 @@ export default function PlayWordPuzzle() {
     if (!data || !puzzleWords || !Array.isArray(puzzleWords) || puzzleWords.length === 0) {
       console.error('Invalid game data:', data);
       Alert.alert('Error', 'Invalid game data. Please try again.');
-      router.back();
+      smartNavigateBack(router, '/play-word-puzzle');
       return;
     }
 
@@ -232,7 +233,7 @@ export default function PlayWordPuzzle() {
           <Ionicons name="warning-outline" size={48} color="#FF9800" />
           <Text style={styles.errorTitle}>Invalid Game Data</Text>
           <Text style={styles.errorMessage}>This game appears to be corrupted or missing puzzle words.</Text>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <TouchableOpacity style={styles.backButton} onPress={() => smartNavigateBack(router, '/play-word-puzzle')}>
             <Text style={styles.backButtonText}>Go Back</Text>
           </TouchableOpacity>
         </View>
@@ -246,7 +247,7 @@ export default function PlayWordPuzzle() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => smartNavigateBack(router, '/play-word-puzzle')}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
@@ -386,7 +387,7 @@ export default function PlayWordPuzzle() {
               <Text style={styles.playAgainText}>Play Again</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+            <TouchableOpacity style={styles.backButton} onPress={() => smartNavigateBack(router, '/play-word-puzzle')}>
               <Text style={styles.backButtonText}>Back to Games</Text>
             </TouchableOpacity>
           </View>

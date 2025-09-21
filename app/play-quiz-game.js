@@ -7,13 +7,14 @@ import {
     Dimensions,
     Modal,
     SafeAreaView,
-    ScrollView,
+    ScrollView,.
     StyleSheet,
     Text,
     TouchableOpacity,
     View
 } from 'react-native';
 import { auth, db } from '../firebase/firebaseConfig';
+import { smartNavigateBack } from '../utils/navigation';
 
 const { width } = Dimensions.get('window');
 
@@ -45,12 +46,12 @@ export default function PlayQuizGame() {
         setGameData(data);
       } else {
         Alert.alert('Error', 'Game not found');
-        router.back();
+        smartNavigateBack(router, '/play-quiz-game');
       }
     } catch (error) {
       console.error('Error loading game:', error);
       Alert.alert('Error', 'Failed to load game');
-      router.back();
+      smartNavigateBack(router, '/play-quiz-game');
     } finally {
       setLoading(false);
     }
@@ -155,7 +156,7 @@ export default function PlayQuizGame() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => smartNavigateBack(router, '/play-quiz-game')}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
@@ -260,7 +261,7 @@ export default function PlayQuizGame() {
               <Text style={styles.playAgainText}>Play Again</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+            <TouchableOpacity style={styles.backButton} onPress={() => smartNavigateBack(router, '/play-quiz-game')}>
               <Text style={styles.backButtonText}>Back to Games</Text>
             </TouchableOpacity>
           </View>
