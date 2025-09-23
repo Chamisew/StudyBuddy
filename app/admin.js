@@ -2499,7 +2499,7 @@ File location: ${uri}
         </div>
         
         <div class="footer">
-            <p><strong>StudyBuddy Platform</strong> - Admin Dashboard Report</p>
+            <p><strong>StudyPro Platform</strong> - Admin Dashboard Report</p>
             <p>Generated on ${currentDate} at ${currentTime}</p>
             <p>This report contains confidential platform analytics. Handle with care.</p>
         </div>
