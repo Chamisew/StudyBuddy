@@ -3,12 +3,16 @@ import * as Print from 'expo-print';
 import { useRouter } from "expo-router";
 import * as Sharing from 'expo-sharing';
 import { deleteApp, initializeApp } from "firebase/app";
-import { createUserWithEmailAndPassword, getAuth, signOut } from "firebase/auth";
+import { createUserWithEmailAndPassword, getAuth, sendEmailVerification, signOut } from "firebase/auth";
 import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, increment, limit, onSnapshot, orderBy, query, setDoc, updateDoc, where } from "firebase/firestore";
 import { deleteObject, ref as storageRef } from "firebase/storage";
 import { useEffect, useState } from "react";
 import { Alert, Dimensions, FlatList, Linking, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import app, { auth, db, storage } from "../firebase/firebaseConfig";
+import { smartNavigateBack } from "../utils/navigation";
+
+// Add this import for the chart components
+import { ContentDistributionChart, UserGrowthChart, UserRoleChart } from "../components/ui/ChartComponents";
 
 const { width: screenWidth } = Dimensions.get('window');
 const isMobile = screenWidth < 768;
@@ -155,7 +159,8 @@ export default function AdminDashboardScreen() {
     try {
       await deleteDoc(doc(db, "globalChat", "public", "messages", id));
     } catch (e) {
-      Alert.alert("Error", "Failed to delete message");
+      console.error("Failed to delete message:", e);
+      // Silently handle the error without showing popup
     }
   };
 
@@ -163,7 +168,8 @@ export default function AdminDashboardScreen() {
     try {
       await updateDoc(doc(db, 'users', userId), { isTutor: value });
     } catch (e) {
-      Alert.alert('Error', 'Failed to update tutor status');
+      console.error("Failed to update tutor status:", e);
+      // Silently handle the error without showing popup
     }
   };
 
@@ -171,7 +177,8 @@ export default function AdminDashboardScreen() {
     try {
       await updateDoc(doc(db, 'users', userId), { isAdmin: value });
     } catch (e) {
-      Alert.alert('Error', 'Failed to update admin status');
+      console.error("Failed to update admin status:", e);
+      // Silently handle the error without showing popup
     }
   };
 
@@ -268,7 +275,7 @@ export default function AdminDashboardScreen() {
       });
       
       console.log('🎉 AI Insights generation completed successfully!');
-      Alert.alert('Success', `Generated ${insights.length} AI insights successfully!`);
+      // Silently handle success without showing popup
       
     } catch (error) {
       console.error('❌ AI Insights generation failed:', error);
@@ -278,7 +285,8 @@ export default function AdminDashboardScreen() {
         name: error.name
       });
       setAiInsights(prev => ({ ...prev, loading: false }));
-      Alert.alert('Error', `AI Insights generation failed: ${error.message}`);
+      // Silently handle error without showing popup
+      console.error(`AI Insights generation failed: ${error.message}`);
     }
   };
   
@@ -1327,11 +1335,11 @@ export default function AdminDashboardScreen() {
       setSelectedQuestion(null);
       setCustomReply('');
       
-      Alert.alert('Success', 'Your response has been sent to the user!');
+      // Silently handle success without showing popup
       
     } catch (error) {
       console.error('Error sending admin reply:', error);
-      Alert.alert('Error', 'Failed to send response. Please try again.');
+      // Silently handle the error without showing popup
     }
   };
   
@@ -1356,7 +1364,7 @@ export default function AdminDashboardScreen() {
       
     } catch (error) {
       console.error('Error marking as resolved:', error);
-      Alert.alert('Error', 'Failed to mark as resolved. Please try again.');
+      // Silently handle the error without showing popup
     }
   };
   
@@ -1381,11 +1389,11 @@ export default function AdminDashboardScreen() {
         )
       }));
       
-      Alert.alert('Escalated', 'Question has been escalated for human review.');
+      // Silently handle success without showing popup
       
     } catch (error) {
       console.error('Error escalating question:', error);
-      Alert.alert('Error', 'Failed to escalate question. Please try again.');
+      // Silently handle the error without showing popup
     }
   };
   
@@ -1743,10 +1751,11 @@ export default function AdminDashboardScreen() {
       };
       
       setReportData(reportData);
-      Alert.alert('Report Generated', 'Admin report has been generated successfully!');
+      // Silently handle success without showing popup
     } catch (error) {
       console.error('Error generating report:', error);
-      Alert.alert('Error', 'Failed to generate report. Please try again.');
+      // Silently handle error without showing popup
+      console.error('Failed to generate report. Please try again.');
     } finally {
       setIsGeneratingReport(false);
     }
@@ -1954,34 +1963,41 @@ export default function AdminDashboardScreen() {
   };
 
   const exportReport = async () => {
-    if (!reportData) {
-      Alert.alert('No Report', 'Please generate a report first.');
-      return;
-    }
-    
+    // Generate report data directly for download without showing in UI
     try {
+      const reportDataForDownload = {
+        generatedAt: new Date(),
+        type: 'comprehensive',
+        summary: generateReportSummary(),
+        users: generateUserReport(),
+        tutors: generateTutorReport(),
+        content: generateContentReport(),
+        activity: generateActivityReport(),
+        analytics: generateAnalyticsReport()
+      };
+
       // Check if we're in a web environment or if Print is available
       if (isWeb || !isPrintAvailable) {
         // Web fallback: Create downloadable HTML file
-        const htmlContent = generateReportHTMLWithData(reportData);
+        const htmlContent = generateReportHTMLWithData(reportDataForDownload);
         const blob = new Blob([htmlContent], { type: 'text/html' });
         const url = URL.createObjectURL(blob);
         
         // Create download link
         const link = document.createElement('a');
         link.href = url;
-        link.download = `StudyBuddy_Admin_Report_${new Date().toISOString().split('T')[0]}.html`;
+        link.download = `StudyPro_Admin_Report_${new Date().toISOString().split('T')[0]}.html`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
         
-        Alert.alert('Success', 'Report downloaded as HTML file. You can open it in your browser and print to PDF if needed.');
+        // Silently handle success without showing popup
         return;
       }
       
       // Generate HTML content for PDF
-      const htmlContent = generateReportHTMLWithData(reportData);
+      const htmlContent = generateReportHTMLWithData(reportDataForDownload);
       
       // Create PDF
       const { uri } = await Print.printToFileAsync({
@@ -1994,50 +2010,54 @@ export default function AdminDashboardScreen() {
       if (isAvailable) {
         await Sharing.shareAsync(uri, {
           mimeType: 'application/pdf',
-          dialogTitle: 'Admin Report - StudyBuddy Platform',
+          dialogTitle: 'Admin Report - StudyPro Platform',
           UTI: 'com.adobe.pdf'
         });
       } else {
-        // Fallback: Show alert with report summary
-        Alert.alert(
-          'Report Generated',
-          `Report Summary:\n\n` +
-          `👥 Users: ${reportData.summary.totalUsers}\n` +
-          `🎓 Tutors: ${reportData.summary.totalTutors}\n` +
-          `📚 Resources: ${reportData.summary.totalResources}\n` +
-          `🎥 Videos: ${reportData.summary.totalVideos}\n` +
-          `📊 Engagement: ${reportData.summary.platformHealth.userEngagement.toFixed(1)}%\n\n` +
-          `PDF saved to: ${uri}`,
-          [{ text: 'OK' }]
-        );
+        // Silently handle success without showing popup
       }
       
       console.log('PDF Report saved to:', uri);
-      console.log('DETAILED ADMIN REPORT:', reportData);
+      console.log('DETAILED ADMIN REPORT:', reportDataForDownload);
       
     } catch (error) {
       console.error('Error exporting PDF report:', error);
       
       // Additional web fallback if PDF generation fails
       try {
-        const htmlContent = generateReportHTMLWithData(reportData);
+        const reportDataForDownload = {
+          generatedAt: new Date(),
+          type: 'comprehensive',
+          summary: generateReportSummary(),
+          users: generateUserReport(),
+          tutors: generateTutorReport(),
+          content: generateContentReport(),
+          activity: generateActivityReport(),
+          analytics: generateAnalyticsReport()
+        };
+        
+        const htmlContent = generateReportHTMLWithData(reportDataForDownload);
         const blob = new Blob([htmlContent], { type: 'text/html' });
         const url = URL.createObjectURL(blob);
         
         const link = document.createElement('a');
         link.href = url;
-        link.download = `StudyBuddy_Admin_Report_${new Date().toISOString().split('T')[0]}.html`;
+        link.download = `StudyPro_Admin_Report_${new Date().toISOString().split('T')[0]}.html`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
         
-        Alert.alert('Fallback Success', 'PDF generation failed, but report downloaded as HTML file.');
+        // Silently handle success without showing popup
       } catch (fallbackError) {
-        Alert.alert('Error', 'Failed to export report. Please try again.');
+        // Silently handle error without showing popup
+        console.error('Failed to export report. Please try again.');
       }
     }
   };
+
+
+
 
   const generateAndDownloadPDF = async () => {
     try {
@@ -2067,17 +2087,13 @@ export default function AdminDashboardScreen() {
         // Create download link
         const link = document.createElement('a');
         link.href = url;
-        link.download = `StudyBuddy_Admin_Report_${new Date().toISOString().split('T')[0]}.html`;
+        link.download = `StudyPro_Admin_Report_${new Date().toISOString().split('T')[0]}.html`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
         
-        Alert.alert(
-          'Success', 
-          'Report downloaded as HTML file! You can open it in your browser and print to PDF if needed.\n\n' +
-          `📈 Report includes comprehensive platform analytics and insights.`
-        );
+        // Silently handle success without showing popup
         return;
       }
       
@@ -2095,7 +2111,7 @@ export default function AdminDashboardScreen() {
       if (isAvailable) {
         await Sharing.shareAsync(uri, {
           mimeType: 'application/pdf',
-          dialogTitle: 'StudyBuddy Admin Report - PDF Download',
+          dialogTitle: 'StudyPro Admin Report - PDF Download',
           UTI: 'com.adobe.pdf'
         });
       } else {
@@ -2110,7 +2126,7 @@ File location: ${uri}
         );
       }
       
-      Alert.alert('Success', 'PDF report generated and ready for download!');
+      // Silently handle success without showing popup
       console.log('PDF Report saved to:', uri);
       
     } catch (error) {
@@ -2135,15 +2151,16 @@ File location: ${uri}
         
         const link = document.createElement('a');
         link.href = url;
-        link.download = `StudyBuddy_Admin_Report_${new Date().toISOString().split('T')[0]}.html`;
+        link.download = `StudyPro_Admin_Report_${new Date().toISOString().split('T')[0]}.html`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
         
-        Alert.alert('Fallback Success', 'PDF generation failed, but report downloaded as HTML file that you can print to PDF.');
+        // Silently handle success without showing popup
       } catch (fallbackError) {
-        Alert.alert('Error', 'Failed to generate report. Please try again.');
+        // Silently handle error without showing popup
+        console.error('Failed to generate report. Please try again.');
       }
     } finally {
       setIsGeneratingReport(false);
@@ -2156,12 +2173,24 @@ File location: ${uri}
     const currentDate = new Date().toLocaleDateString();
     const currentTime = new Date().toLocaleTimeString();
     
+    // Generate student list HTML
+    const studentListHTML = users
+      .filter(u => !u.isTutor && !u.isAdmin)
+      .map((student, index) => `
+        <tr>
+          <td>${index + 1}</td>
+          <td>${student.fullName || student.name || 'Anonymous'}</td>
+          <td>${student.email || 'No email'}</td>
+          <td>${student.expertiseLevel || 'Beginner'}</td>
+        </tr>
+      `).join('');
+    
     return `
     <!DOCTYPE html>
     <html>
     <head>
         <meta charset="utf-8">
-        <title>StudyBuddyAdmin Report</title>
+        <title>StudyPro Admin Report</title>
         <style>
             body {
                 font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -2323,7 +2352,7 @@ File location: ${uri}
     </head>
     <body>
         <div class="header">
-            <h1>📈 StudyBuddy Admin Report</h1>
+            <h1>📈 StudyPro Admin Report</h1>
             <p>Comprehensive Platform Analytics & Insights</p>
         </div>
         
@@ -2433,6 +2462,27 @@ File location: ${uri}
         
         <div class="section">
             <div class="section-header">
+                <h2 class="section-title">👥 Student List</h2>
+            </div>
+            <div class="section-content">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Level</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${studentListHTML || '<tr><td colspan="4">No students found</td></tr>'}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div class="section">
+            <div class="section-header">
                 <h2 class="section-title">📈 Activity Breakdown</h2>
             </div>
             <div class="section-content">
@@ -2515,7 +2565,8 @@ File location: ${uri}
       const currentUser = auth.currentUser;
       if (!currentUser) {
         console.error('❌ No current user');
-        Alert.alert('Error', 'No user logged in');
+        // Silently handle error without showing popup
+      console.error('No user logged in');
         return;
       }
       
@@ -2525,7 +2576,8 @@ File location: ${uri}
       const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
       if (!userDoc.exists()) {
         console.error('❌ User document not found');
-        Alert.alert('Error', 'User document not found');
+        // Silently handle error without showing popup
+      console.error('User document not found');
         return;
       }
       
@@ -2558,17 +2610,19 @@ File location: ${uri}
         }
       }
       
-      Alert.alert('Debug Info', `Admin: ${isAdmin}\nUser: ${currentUser.uid}\nResources: ${resources.length}`);
+      // Silently handle success without showing popup
       
     } catch (error) {
       console.error('❌ Test error:', error);
-      Alert.alert('Error', `Test failed: ${error.message}`);
+      // Silently handle error without showing popup
+      console.error(`Test failed: ${error.message}`);
     }
   };
 
   const testDeleteResource = async () => {
     if (resources.length === 0) {
-      Alert.alert('No Resources', 'No resources available to test delete');
+      // Silently handle error without showing popup
+      console.error('No resources available to test delete');
       return;
     }
     
@@ -2590,17 +2644,19 @@ File location: ${uri}
         console.log('✅ Storage delete successful');
       }
       
-      Alert.alert('Test Success', 'Delete test completed successfully');
+      // Silently handle success without showing popup
       
     } catch (error) {
       console.error('❌ Test delete failed:', error);
-      Alert.alert('Test Failed', `Delete test failed: ${error.message}`);
+      // Silently handle error without showing popup
+      console.error(`Delete test failed: ${error.message}`);
     }
   };
 
   const testDeleteUser = async () => {
     if (students.length === 0) {
-      Alert.alert('No Students', 'No students available to test delete');
+      // Silently handle error without showing popup
+      console.error('No students available to test delete');
       return;
     }
     
@@ -2617,15 +2673,17 @@ File location: ${uri}
       const verifyDoc = await getDoc(doc(db, 'users', testStudent.id));
       if (!verifyDoc.exists()) {
         console.log('✅ Verification: User document no longer exists in Firestore');
-        Alert.alert('Test Success', 'User delete test completed successfully');
+        // Silently handle success without showing popup
       } else {
         console.log('❌ Verification: User document still exists in Firestore');
-        Alert.alert('Test Failed', 'User document still exists after deletion');
+        // Silently handle error without showing popup
+        console.error('User document still exists after deletion');
       }
       
     } catch (error) {
       console.error('❌ Test user delete failed:', error);
-      Alert.alert('Test Failed', `User delete test failed: ${error.message}`);
+      // Silently handle error without showing popup
+      console.error(`User delete test failed: ${error.message}`);
     }
   };
 
@@ -2707,8 +2765,8 @@ File location: ${uri}
             error: storageError
           });
           
-          // Show specific error message
-          alert(`Storage Error: Failed to delete file: ${storageError.message}`);
+          // Silently handle storage error without showing popup
+          console.error(`Storage Error: Failed to delete file: ${storageError.message}`);
           return;
         }
       } else {
@@ -2716,7 +2774,7 @@ File location: ${uri}
         console.log('Available fields in resource data:', Object.keys(resourceData));
       }
       
-      alert('Success: Resource deleted successfully');
+      // Silently handle success without showing popup
     } catch (e) {
       console.error('❌ Delete resource error:', e);
       console.error('Full error details:', {
@@ -2724,7 +2782,8 @@ File location: ${uri}
         code: e.code,
         stack: e.stack
       });
-      alert(`Error: Failed to delete resource: ${e.message || 'Unknown error'}`);
+      // Silently handle error without showing popup
+      console.error(`Error: Failed to delete resource: ${e.message || 'Unknown error'}`);
     }
   };
 
@@ -2744,7 +2803,8 @@ File location: ${uri}
       // First get the video data to find the storage path
       const videoDoc = await getDoc(doc(db, 'videos', videoId));
       if (!videoDoc.exists()) {
-        alert('Error: Video not found');
+        // Silently handle error without showing popup
+        console.error('Error: Video not found');
         return;
       }
       
@@ -2794,7 +2854,7 @@ File location: ${uri}
         console.log('Available fields in video data:', Object.keys(videoData));
       }
       
-      alert('Success: Video deleted successfully');
+      // Silently handle success without showing popup
     } catch (e) {
       console.error('❌ Delete video error:', e);
       console.error('Full error details:', {
@@ -2802,7 +2862,8 @@ File location: ${uri}
         code: e.code,
         stack: e.stack
       });
-      alert(`Error: Failed to delete video: ${e.message || 'Unknown error'}`);
+      // Silently handle error without showing popup
+      console.error(`Error: Failed to delete video: ${e.message || 'Unknown error'}`);
     }
   };
 
@@ -2817,9 +2878,10 @@ File location: ${uri}
         updatedAt: new Date(),
       });
       setEditVideo(null);
-      Alert.alert('Saved', 'Video updated');
+      // Silently handle success without showing popup
     } catch (e) {
-      Alert.alert('Error', 'Failed to save changes');
+      // Silently handle error without showing popup
+      console.error('Failed to save changes');
     } finally {
       setEditSaving(false);
     }
@@ -2844,7 +2906,8 @@ File location: ${uri}
         await updateDoc(parentRef, { adminCommentsSeenCount: totalComments });
       } catch {}
     } catch (e) {
-      Alert.alert('Error', 'Failed to load comments');
+      // Silently handle error without showing popup
+      console.error('Failed to load comments');
     } finally {
       setCommentsLoading(false);
     }
@@ -2860,7 +2923,8 @@ File location: ${uri}
       // Reload current list
       openItemComments(commentsTarget.type, commentsTarget.id, commentsTarget.title);
     } catch (e) {
-      Alert.alert('Error', 'Failed to delete comment');
+      // Silently handle error without showing popup
+      console.error('Failed to delete comment');
     }
   };
 
@@ -2900,7 +2964,8 @@ File location: ${uri}
         await updateDoc(parentRef, { adminReportsSeenCount: totalReports });
       } catch {}
     } catch (e) {
-      Alert.alert('Error', 'Failed to load reports');
+      // Silently handle error without showing popup
+      console.error('Failed to load reports');
     } finally {
       setReportsLoading(false);
     }
@@ -2914,7 +2979,8 @@ File location: ${uri}
       try { await updateDoc(doc(db, col, reportsTarget.id), { reports: increment(-1) }); } catch {}
       openItemReports(reportsTarget.type, reportsTarget.id, reportsTarget.title);
     } catch (e) {
-      Alert.alert('Error', 'Failed to dismiss report');
+      // Silently handle error without showing popup
+      console.error('Failed to dismiss report');
     }
   };
 
@@ -2928,9 +2994,10 @@ File location: ${uri}
       }
       try { await updateDoc(doc(db, col, reportsTarget.id), { reports: 0 }); } catch {}
       openItemReports(reportsTarget.type, reportsTarget.id, reportsTarget.title);
-      Alert.alert('Cleared', 'All reports cleared for this item.');
+      // Silently handle success without showing popup
     } catch (e) {
-      Alert.alert('Error', 'Failed to clear reports');
+      // Silently handle error without showing popup
+      console.error('Failed to clear reports');
     }
   };
 
@@ -3015,7 +3082,7 @@ File location: ${uri}
         console.warn('⚠️ Error deleting auth account:', authError);
       }
       
-      alert('Success: Student removed (Note: Auth account needs manual deletion from Firebase Console)');
+      // Silently handle success without showing popup
     } catch (e) {
       console.error('❌ Delete student error:', e);
       console.error('Full error details:', {
@@ -3023,7 +3090,8 @@ File location: ${uri}
         code: e.code,
         stack: e.stack
       });
-      alert(`Error: Failed to delete student: ${e.message || 'Unknown error'}`);
+      // Silently handle error without showing popup
+      console.error(`Error: Failed to delete student: ${e.message || 'Unknown error'}`);
     }
   };
 
@@ -3108,7 +3176,7 @@ File location: ${uri}
         console.warn('⚠️ Error deleting auth account:', authError);
       }
       
-      alert('Success: Tutor removed (Note: Auth account needs manual deletion from Firebase Console)');
+      // Silently handle success without showing popup
     } catch (e) {
       console.error('❌ Delete tutor error:', e);
       console.error('Full error details:', {
@@ -3116,7 +3184,8 @@ File location: ${uri}
         code: e.code,
         stack: e.stack
       });
-      alert(`Error: Failed to delete tutor: ${e.message || 'Unknown error'}`);
+      // Silently handle error without showing popup
+      console.error(`Error: Failed to delete tutor: ${e.message || 'Unknown error'}`);
     }
   };
 
@@ -3127,36 +3196,149 @@ File location: ${uri}
       const name = regName.trim();
       const position = regPosition.trim();
       const phone = regPhone.trim();
-      if (!email || !email.includes('@')) { Alert.alert('Invalid', 'Enter a valid email'); return; }
-      if (!password || password.length < 6) { Alert.alert('Invalid', 'Password must be at least 6 characters'); return; }
-      if (!name) { Alert.alert('Required', 'Enter name'); return; }
-      if (!position) { Alert.alert('Required', 'Enter position'); return; }
-      if (!phone) { Alert.alert('Required', 'Enter phone number'); return; }
+      
+      // Validation
+      if (!email || !email.includes('@')) {
+        Alert.alert('Error', 'Please enter a valid email address');
+        return;
+      }
+      if (!password || password.length < 6) {
+        Alert.alert('Error', 'Password must be at least 6 characters');
+        return;
+      }
+      if (!name) {
+        Alert.alert('Error', 'Please enter admin name');
+        return;
+      }
+      if (!position) {
+        Alert.alert('Error', 'Please enter admin position');
+        return;
+      }
+      if (!phone) {
+        Alert.alert('Error', 'Please enter phone number');
+        return;
+      }
 
       setRegSubmitting(true);
+      
       // Create user using a secondary app to avoid replacing current admin session
-      const temp = initializeApp(app.options, 'admin-create');
+      const temp = initializeApp(app.options, 'admin-create-' + Date.now());
       const tempAuth = getAuth(temp);
+      
+      // Create the user account
       const cred = await createUserWithEmailAndPassword(tempAuth, email, password);
       const uid = cred.user.uid;
+      
+      // Send email verification with better error handling
+      try {
+        console.log('Attempting to send verification email to:', email);
+        console.log('User object:', cred.user);
+        console.log('User email verified status:', cred.user.emailVerified);
+        
+        await sendEmailVerification(cred.user);
+        console.log('✅ Verification email sent successfully to:', email);
+      } catch (emailError) {
+        console.error('❌ Failed to send verification email:', emailError.message);
+        console.error('Email error details:', emailError);
+        
+        // Show specific error to admin
+        Alert.alert(
+          'Warning',
+          `Admin account created but verification email failed to send.\n\nError: ${emailError.message}\n\nPlease check Firebase console settings.`
+        );
+      }
+      
+      // Create complete user document structure matching regular users
       await setDoc(doc(db, 'users', uid), {
         email,
-        name,
+        fullName: name, // Use fullName instead of name to match signin expectations
         position,
         phone,
         isAdmin: true,
         isTutor: false,
+        subjects: [], // Required for admin users
+        expertiseLevel: 'Expert', // Default for admins
+        achievements: [], // Initialize empty achievements
+        profileImage: '', // Initialize empty profile image
         createdAt: new Date(),
         updatedAt: new Date(),
+        emailVerified: false, // Will be updated when user verifies email
       }, { merge: true });
+      
+      // Clean up secondary app
       try { await tempAuth.signOut(); } catch {}
       try { await deleteApp(temp); } catch {}
-      Alert.alert('Success', 'Admin account created');
+      
+      // Show success message
+        Alert.alert(
+        'Admin Created Successfully', 
+        `Admin account created for ${email}.\n\nA verification email should have been sent. If the new admin doesn't receive it, check spam folder or use the manual verification option.`,
+        [
+          { text: 'OK' },
+          { 
+            text: 'Manual Verification', 
+            onPress: () => resendVerificationEmail(email) 
+          }
+        ]
+      );      // Reset form
       setRegisterAdminVisible(false);
-      setRegEmail(""); setRegPassword(""); setRegName(""); setRegPosition(""); setRegPhone("");
-    } catch (e) {
-      Alert.alert('Error', e?.message || 'Failed to create admin');
+      setRegEmail("");
+      setRegPassword("");
+      setRegName("");
+      setRegPosition("");
+      setRegPhone("");
+      
+    } catch (error) {
+      console.error('Admin creation error:', error);
+      Alert.alert(
+        'Error',
+        error.message || 'Failed to create admin account. Please try again.'
+      );
     } finally {
+      setRegSubmitting(false);
+    }
+  };
+
+  // Manual email verification function for troubleshooting
+  const resendVerificationEmail = async (userEmail) => {
+    try {
+      Alert.prompt(
+        'Resend Verification Email',
+        `Enter the email address to resend verification to:`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Send',
+            onPress: async (email) => {
+              if (!email || !email.includes('@')) {
+                Alert.alert('Error', 'Please enter a valid email address');
+                return;
+              }
+              
+              try {
+                // Create temporary auth instance to send verification
+                const temp = initializeApp(app.options, 'verify-email-' + Date.now());
+                const tempAuth = getAuth(temp);
+                
+                // Note: This is a workaround - ideally Firebase Admin SDK should be used
+                Alert.alert(
+                  'Manual Verification Required',
+                  `To send verification email to ${email}:\n\n1. Go to Firebase Console\n2. Navigate to Authentication > Users\n3. Find the user with email: ${email}\n4. Click the "Send email verification" option\n\nOr ask the user to use the "Resend Verification" option in the email verification page.`
+                );
+                
+                try { await deleteApp(temp); } catch {}
+              } catch (error) {
+                console.error('Verification email error:', error);
+                Alert.alert('Error', 'Failed to send verification email: ' + error.message);
+              }
+            }
+          }
+        ],
+        'plain-text',
+        userEmail || ''
+      );
+    } catch (error) {
+      console.error('Resend verification error:', error);
     }
   };
 
@@ -3389,7 +3571,7 @@ File location: ${uri}
       <View style={styles.header}>
         <TouchableOpacity 
           style={styles.backButton} 
-          onPress={() => { try { if (router.canGoBack?.()) { router.back(); } else { router.replace('/home'); } } catch { try { router.push('/home'); } catch {} } }}
+          onPress={() => smartNavigateBack(router, '/admin')}
         >
           <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
@@ -3535,6 +3717,29 @@ File location: ${uri}
                 </View>
               </View>
 
+              {/* Charts Section */}
+              <View style={styles.chartsSection}>
+                <Text style={styles.sectionTitle}>📊 Platform Analytics</Text>
+                
+                {/* User Growth Chart */}
+                <View style={styles.chartContainer}>
+                  <Text style={styles.chartTitle}>User Growth Trend</Text>
+                  <UserGrowthChart users={users} />
+                </View>
+                
+                {/* Content Distribution Chart */}
+                <View style={styles.chartContainer}>
+                  <Text style={styles.chartTitle}>Content Distribution</Text>
+                  <ContentDistributionChart resources={resources} videos={videos} />
+                </View>
+                
+                {/* User Role Chart */}
+                <View style={styles.chartContainer}>
+                  <Text style={styles.chartTitle}>User Roles</Text>
+                  <UserRoleChart users={users} tutors={tutors} />
+                </View>
+              </View>
+
               {/* Quick Stats */}
               <View style={styles.quickStats}>
                 <Text style={styles.sectionTitle}>Platform Health</Text>
@@ -3666,6 +3871,7 @@ File location: ${uri}
                 </View>
                 
                 <View style={styles.reportButtons}>
+                  {/* Generate Report button - shows overview only */}
                   <TouchableOpacity 
                     style={[styles.reportBtn, { backgroundColor: isGeneratingReport ? '#94a3b8' : '#6366f1' }]}
                     onPress={() => generateReport('comprehensive')}
@@ -3677,29 +3883,60 @@ File location: ${uri}
                     </Text>
                   </TouchableOpacity>
                   
-                  {reportData && (
-                    <TouchableOpacity 
-                      style={[styles.reportBtn, { backgroundColor: '#059669', marginTop: 8 }]}
-                      onPress={exportReport}
-                    >
-                      <Ionicons name="document-outline" size={16} color="#fff" />
-                      <Text style={styles.reportBtnText}>Download PDF Report</Text>
-                    </TouchableOpacity>
-                  )}
-                  
+                  {/* Download Report button - downloads PDF directly */}
                   <TouchableOpacity 
-                    style={[styles.reportBtn, { 
-                      backgroundColor: isGeneratingReport ? '#94a3b8' : '#7c3aed',
-                      marginTop: 8
-                    }]}
-                    onPress={generateAndDownloadPDF}
-                    disabled={isGeneratingReport}
+                    style={[styles.reportBtn, { backgroundColor: '#059669', marginTop: 8 }]}
+                    onPress={exportReport}
                   >
-                    <Ionicons name="document-text-outline" size={16} color="#fff" />
-                    <Text style={styles.reportBtnText}>
-                      {isGeneratingReport ? 'Generating PDF...' : 'Generate & Download PDF'}
-                    </Text>
+                    <Ionicons name="document-outline" size={16} color="#fff" />
+                    <Text style={styles.reportBtnText}>Download PDF Report</Text>
                   </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Student List Section */}
+              <View style={styles.reportSection}>
+                <Text style={styles.reportSectionTitle}>Student List</Text>
+                <View style={{ marginBottom: 16 }}>
+                  <FlatList
+                    data={users.filter(u => !u.isTutor && !u.isAdmin)}
+                    keyExtractor={(item) => item.id}
+                    renderItem={({ item }) => (
+                      <View style={{
+                        flexDirection: 'row',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: 12,
+                        backgroundColor: '#f8fafc',
+                        borderRadius: 8,
+                        marginBottom: 8,
+                        borderWidth: 1,
+                        borderColor: '#e2e8f0'
+                      }}>
+                        <View>
+                          <Text style={{ fontSize: 14, fontWeight: '600', color: '#1e293b' }}>
+                            {item.fullName || item.email || item.id}
+                          </Text>
+                          {item.email && item.email !== item.fullName && (
+                            <Text style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+                              {item.email}
+                            </Text>
+                          )}
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <Text style={{ fontSize: 12, color: '#64748b' }}>
+                            {item.expertiseLevel || 'Beginner'}
+                          </Text>
+                        </View>
+                      </View>
+                    )}
+                    scrollEnabled={false}
+                    ListEmptyComponent={
+                      <Text style={{ textAlign: 'center', color: '#64748b', padding: 16 }}>
+                        No students found
+                      </Text>
+                    }
+                  />
                 </View>
               </View>
 
@@ -3779,6 +4016,33 @@ File location: ${uri}
                         <Text style={styles.activityValue}>{reportData.activity.last30days.newUsers} users</Text>
                         <Text style={styles.activityValue}>{reportData.activity.last30days.newContent} content</Text>
                       </View>
+                    </View>
+                  </View>
+
+                  {/* Student List in Report */}
+                  <View style={styles.reportSection}>
+                    <Text style={styles.reportSectionTitle}>Student List</Text>
+                    <View style={styles.reportTable}>
+                      <View style={[styles.reportTableRow, { backgroundColor: '#f1f5f9' }]}>
+                        <Text style={[styles.reportTableCell, { fontWeight: '600' }]}>Name</Text>
+                        <Text style={[styles.reportTableCell, { fontWeight: '600' }]}>Email</Text>
+                        <Text style={[styles.reportTableCell, { fontWeight: '600' }]}>Level</Text>
+                      </View>
+                      {users
+                        .filter(u => !u.isTutor && !u.isAdmin)
+                        .map((student, index) => (
+                          <View key={student.id} style={styles.reportTableRow}>
+                            <Text style={styles.reportTableCell}>
+                              {student.fullName || student.name || 'Anonymous'}
+                            </Text>
+                            <Text style={styles.reportTableCell}>
+                              {student.email || 'No email'}
+                            </Text>
+                            <Text style={styles.reportTableCell}>
+                              {student.expertiseLevel || 'Beginner'}
+                            </Text>
+                          </View>
+                        ))}
                     </View>
                   </View>
 
@@ -3973,28 +4237,30 @@ File location: ${uri}
           )}
 
           {activeTab === 'ai-insights' && (
-            <ScrollView style={{ flex: 1, padding: 16 }}>
+            <ScrollView style={{ flex: 1, padding: isMobile ? 12 : 16 }}>
               {/* AI Insights Header */}
               <View style={styles.aiHeader}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                <View style={{ flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', marginBottom: isMobile ? 12 : 8 }}>
                   <View style={styles.iconContainer}>
-                    <Ionicons name="analytics-outline" size={24} color="#6366f1" />
+                    <Ionicons name="analytics-outline" size={isMobile ? 20 : 24} color="#6366f1" />
                   </View>
-                  <View style={{ flex: 1 }}>
+                  <View style={{ flex: 1, marginTop: isMobile ? 8 : 0 }}>
                     <Text style={styles.aiTitle}>AI Powered Analytics Dashboard</Text>
                     <Text style={styles.aiSubtitle}>Advanced insights • Real-time analytics • Predictive intelligence</Text>
                   </View>
-                  <View style={styles.statusIndicator}>
+                  <View style={[styles.statusIndicator, { marginTop: isMobile ? 12 : 0 }]}>
                     <View style={[styles.statusDot, { backgroundColor: aiInsights.insights.length > 0 ? '#10b981' : '#f59e0b' }]} />
                     <Text style={styles.statusText}>{aiInsights.insights.length > 0 ? 'Active' : 'Ready'}</Text>
                   </View>
                 </View>
                 
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}>
+                <View style={{ flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'center' : 'center', marginTop: 16 }}>
                   <TouchableOpacity 
                     style={[styles.generateBtn, { 
                       opacity: aiInsights.loading ? 0.6 : 1,
-                      backgroundColor: aiInsights.loading ? '#94a3b8' : '#6366f1'
+                      backgroundColor: aiInsights.loading ? '#94a3b8' : '#6366f1',
+                      width: isMobile ? '100%' : 'auto',
+                      marginBottom: isMobile ? 12 : 0,
                     }]}
                     onPress={() => {
                       console.log('🔄 Generate Insights button pressed');
@@ -4004,7 +4270,7 @@ File location: ${uri}
                   >
                     <Ionicons 
                       name={aiInsights.loading ? "sync" : "refresh"} 
-                      size={16} 
+                      size={isMobile ? 14 : 16} 
                       color="#fff" 
                       style={aiInsights.loading ? { transform: [{ rotate: '45deg' }] } : {}}
                     />
@@ -4014,8 +4280,8 @@ File location: ${uri}
                   </TouchableOpacity>
                   
                   {aiInsights.lastUpdated && (
-                    <View style={styles.lastUpdateContainer}>
-                      <Ionicons name="time-outline" size={12} color="#64748b" />
+                    <View style={[styles.lastUpdateContainer, { marginTop: isMobile ? 12 : 0 }]}>
+                      <Ionicons name="time-outline" size={isMobile ? 10 : 12} color="#64748b" />
                       <Text style={styles.lastUpdated}>
                         Updated: {aiInsights.lastUpdated.toLocaleTimeString()}
                       </Text>
@@ -4029,9 +4295,9 @@ File location: ${uri}
                 <>
                   {/* Enhanced Stats Overview */}
                   <View style={styles.statsGrid}>
-                    <View style={[styles.statCard, styles.statCardPrimary]}>
+                    <View style={[styles.statCard, styles.statCardPrimary, { marginBottom: isMobile ? 12 : 16 }]}>
                       <View style={styles.statIcon}>
-                        <Ionicons name="people-outline" size={24} color="#0284c7" />
+                        <Ionicons name="people-outline" size={isMobile ? 20 : 24} color="#0284c7" />
                       </View>
                       <View style={styles.statContent}>
                         <Text style={styles.statNumber}>{users?.length || 0}</Text>
@@ -4040,9 +4306,9 @@ File location: ${uri}
                       </View>
                     </View>
                     
-                    <View style={[styles.statCard, styles.statCardSuccess]}>
+                    <View style={[styles.statCard, styles.statCardSuccess, { marginBottom: isMobile ? 12 : 16 }]}>
                       <View style={styles.statIcon}>
-                        <Ionicons name="library-outline" size={24} color="#059669" />
+                        <Ionicons name="library-outline" size={isMobile ? 20 : 24} color="#059669" />
                       </View>
                       <View style={styles.statContent}>
                         <Text style={styles.statNumber}>{(resources?.length || 0) + (videos?.length || 0)}</Text>
@@ -4051,9 +4317,9 @@ File location: ${uri}
                       </View>
                     </View>
                     
-                    <View style={[styles.statCard, styles.statCardWarning]}>
+                    <View style={[styles.statCard, styles.statCardWarning, { marginBottom: isMobile ? 12 : 16 }]}>
                       <View style={styles.statIcon}>
-                        <Ionicons name="trending-up-outline" size={24} color="#dc2626" />
+                        <Ionicons name="trending-up-outline" size={isMobile ? 20 : 24} color="#dc2626" />
                       </View>
                       <View style={styles.statContent}>
                         <Text style={styles.statNumber}>
@@ -4064,9 +4330,9 @@ File location: ${uri}
                       </View>
                     </View>
                     
-                    <View style={[styles.statCard, styles.statCardInfo]}>
+                    <View style={[styles.statCard, styles.statCardInfo, { marginBottom: isMobile ? 12 : 16 }]}>
                       <View style={styles.statIcon}>
-                        <Ionicons name="school-outline" size={24} color="#8b5cf6" />
+                        <Ionicons name="school-outline" size={isMobile ? 20 : 24} color="#8b5cf6" />
                       </View>
                       <View style={styles.statContent}>
                         <Text style={styles.statNumber}>{tutors?.length || 0}</Text>
@@ -4084,18 +4350,18 @@ File location: ${uri}
                           <View style={[styles.insightIcon, { backgroundColor: getInsightColor(insight.type) }]}>
                             <Ionicons 
                               name={getInsightIcon(insight.type)} 
-                              size={16} 
+                              size={isMobile ? 14 : 16} 
                               color="#fff" 
                             />
                           </View>
-                          <View style={{ flex: 1 }}>
+                          <View style={{ flex: 1, marginLeft: isMobile ? 8 : 0 }}>
                             <Text style={styles.insightTitle}>{insight.title}</Text>
                             <Text style={styles.insightTime}>
                               {insight.timestamp.toLocaleTimeString()}
                             </Text>
                           </View>
                         </View>
-                        <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(insight.priority) }]}>
+                        <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(insight.priority), marginTop: isMobile ? 8 : 0 }]}>
                           <Text style={styles.priorityText}>{insight.priority.toUpperCase()}</Text>
                         </View>
                       </View>
@@ -4108,7 +4374,7 @@ File location: ${uri}
                         <View style={styles.expandIndicator}>
                           <Ionicons 
                             name={selectedInsight?.id === insight.id ? "chevron-up" : "chevron-down"} 
-                            size={16} 
+                            size={isMobile ? 14 : 16} 
                             color="#666" 
                           />
                           <Text style={styles.expandText}>
@@ -4129,32 +4395,65 @@ File location: ${uri}
                   {aiInsights.sentimentAnalysis && (
                     <View style={styles.sentimentCard}>
                       <Text style={styles.sectionTitle}>🎭 Community Sentiment Analysis</Text>
-                      <View style={styles.sentimentGrid}>
-                        <View style={[styles.sentimentItem, { backgroundColor: '#dcfce7' }]}>
-                          <Text style={styles.sentimentLabel}>Positive</Text>
-                          <Text style={[styles.sentimentValue, { color: '#16a34a' }]}>
-                            {aiInsights.sentimentAnalysis.breakdown.positive || 0}
-                          </Text>
+                      {isMobile ? (
+                        // Mobile: Horizontal layout with labels and values side by side
+                        <View style={{ width: '100%' }}>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: 12, padding: 12, backgroundColor: '#dcfce7', borderRadius: 8 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                              <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: '#16a34a', marginRight: 8 }}></View>
+                              <Text style={styles.sentimentLabel}>Positive</Text>
+                            </View>
+                            <Text style={[styles.sentimentValue, { color: '#16a34a', fontSize: 18 }]}>
+                              {aiInsights.sentimentAnalysis.breakdown.positive || 0}
+                            </Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: 12, padding: 12, backgroundColor: '#fef3c7', borderRadius: 8 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                              <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: '#ca8a04', marginRight: 8 }}></View>
+                              <Text style={styles.sentimentLabel}>Neutral</Text>
+                            </View>
+                            <Text style={[styles.sentimentValue, { color: '#ca8a04', fontSize: 18 }]}>
+                              {aiInsights.sentimentAnalysis.breakdown.neutral || 0}
+                            </Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: 12, backgroundColor: '#fee2e2', borderRadius: 8 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                              <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: '#dc2626', marginRight: 8 }}></View>
+                              <Text style={styles.sentimentLabel}>Negative</Text>
+                            </View>
+                            <Text style={[styles.sentimentValue, { color: '#dc2626', fontSize: 18 }]}>
+                              {aiInsights.sentimentAnalysis.breakdown.negative || 0}
+                            </Text>
+                          </View>
                         </View>
-                        <View style={[styles.sentimentItem, { backgroundColor: '#fef3c7' }]}>
-                          <Text style={styles.sentimentLabel}>Neutral</Text>
-                          <Text style={[styles.sentimentValue, { color: '#ca8a04' }]}>
-                            {aiInsights.sentimentAnalysis.breakdown.neutral || 0}
-                          </Text>
+                      ) : (
+                        // Desktop: Original layout with colored boxes
+                        <View style={styles.sentimentGrid}>
+                          <View style={[styles.sentimentItem, { backgroundColor: '#dcfce7', marginBottom: 0 }]}>
+                            <Text style={styles.sentimentLabel}>Positive</Text>
+                            <Text style={[styles.sentimentValue, { color: '#16a34a' }]}>
+                              {aiInsights.sentimentAnalysis.breakdown.positive || 0}
+                            </Text>
+                          </View>
+                          <View style={[styles.sentimentItem, { backgroundColor: '#fef3c7', marginBottom: 0 }]}>
+                            <Text style={styles.sentimentLabel}>Neutral</Text>
+                            <Text style={[styles.sentimentValue, { color: '#ca8a04' }]}>
+                              {aiInsights.sentimentAnalysis.breakdown.neutral || 0}
+                            </Text>
+                          </View>
+                          <View style={[styles.sentimentItem, { backgroundColor: '#fee2e2' }]}>
+                            <Text style={styles.sentimentLabel}>Negative</Text>
+                            <Text style={[styles.sentimentValue, { color: '#dc2626' }]}>
+                              {aiInsights.sentimentAnalysis.breakdown.negative || 0}
+                            </Text>
+                          </View>
                         </View>
-                        <View style={[styles.sentimentItem, { backgroundColor: '#fee2e2' }]}>
-                          <Text style={styles.sentimentLabel}>Negative</Text>
-                          <Text style={[styles.sentimentValue, { color: '#dc2626' }]}>
-                            {aiInsights.sentimentAnalysis.breakdown.negative || 0}
-                          </Text>
-                        </View>
-                      </View>
+                      )}
                       <Text style={styles.sentimentOverall}>
                         Overall Trend: {aiInsights.sentimentAnalysis.trends?.trend || 'Stable'}
                       </Text>
                     </View>
                   )}
-
                   {/* Predictive Analytics */}
                   {aiInsights.predictiveAnalytics && (
                     <View style={styles.predictiveCard}>
@@ -4179,7 +4478,7 @@ File location: ${uri}
                         <Text style={styles.recommendationsTitle}>💡 AI Recommendations</Text>
                         {aiInsights.predictiveAnalytics.recommendations.map((rec, index) => (
                           <View key={index} style={styles.recommendationItem}>
-                            <Ionicons name="bulb-outline" size={14} color="#f59e0b" />
+                            <Ionicons name="bulb-outline" size={isMobile ? 12 : 14} color="#f59e0b" />
                             <Text style={styles.recommendationText}>{rec}</Text>
                           </View>
                         ))}
@@ -4191,18 +4490,18 @@ File location: ${uri}
                   <View style={styles.healthCard}>
                     <Text style={styles.sectionTitle}>⚡ System Health Monitor</Text>
                     <View style={styles.healthGrid}>
-                      <View style={styles.healthItem}>
-                        <Ionicons name="server-outline" size={18} color="#10b981" />
+                      <View style={[styles.healthItem, { marginBottom: isMobile ? 12 : 0 }]}>
+                        <Ionicons name="server-outline" size={isMobile ? 16 : 18} color="#10b981" />
                         <Text style={styles.healthLabel}>Server Status</Text>
                         <Text style={[styles.healthValue, { color: '#10b981' }]}>Optimal</Text>
                       </View>
-                      <View style={styles.healthItem}>
-                        <Ionicons name="speedometer-outline" size={18} color="#3b82f6" />
+                      <View style={[styles.healthItem, { marginBottom: isMobile ? 12 : 0 }]}>
+                        <Ionicons name="speedometer-outline" size={isMobile ? 16 : 18} color="#3b82f6" />
                         <Text style={styles.healthLabel}>Performance</Text>
                         <Text style={[styles.healthValue, { color: '#3b82f6' }]}>Good</Text>
                       </View>
                       <View style={styles.healthItem}>
-                        <Ionicons name="shield-checkmark-outline" size={18} color="#8b5cf6" />
+                        <Ionicons name="shield-checkmark-outline" size={isMobile ? 16 : 18} color="#8b5cf6" />
                         <Text style={styles.healthLabel}>Security</Text>
                         <Text style={[styles.healthValue, { color: '#8b5cf6' }]}>Secure</Text>
                       </View>
@@ -4211,7 +4510,7 @@ File location: ${uri}
                     {/* Anomaly Alerts */}
                     {aiInsights.insights.some(i => i.type === 'anomaly') && (
                       <View style={styles.anomalyAlert}>
-                        <Ionicons name="warning-outline" size={20} color="#f59e0b" />
+                        <Ionicons name="warning-outline" size={isMobile ? 16 : 20} color="#f59e0b" />
                         <Text style={styles.anomalyText}>System anomalies detected - Review recommended</Text>
                       </View>
                     )}
@@ -4221,23 +4520,23 @@ File location: ${uri}
                   <View style={styles.techCard}>
                     <Text style={styles.sectionTitle}>🚀 Advanced AI Technologies</Text>
                     <View style={styles.techGrid}>
-                      <View style={styles.techItem}>
-                        <Ionicons name="analytics-outline" size={20} color="#6366f1" />
+                      <View style={[styles.techItem, { marginBottom: isMobile ? 12 : 12 }]}>
+                        <Ionicons name="analytics-outline" size={isMobile ? 16 : 20} color="#6366f1" />
                         <Text style={styles.techLabel}>Machine Learning</Text>
                         <Text style={styles.techDescription}>Pattern recognition & behavior analysis</Text>
                       </View>
-                      <View style={styles.techItem}>
-                        <Ionicons name="layers-outline" size={20} color="#8b5cf6" />
+                      <View style={[styles.techItem, { marginBottom: isMobile ? 12 : 12 }]}>
+                        <Ionicons name="layers-outline" size={isMobile ? 16 : 20} color="#8b5cf6" />
                         <Text style={styles.techLabel}>Neural Networks</Text>
                         <Text style={styles.techDescription}>Deep learning for content optimization</Text>
                       </View>
-                      <View style={styles.techItem}>
-                        <Ionicons name="telescope-outline" size={20} color="#06b6d4" />
+                      <View style={[styles.techItem, { marginBottom: isMobile ? 12 : 12 }]}>
+                        <Ionicons name="telescope-outline" size={isMobile ? 16 : 20} color="#06b6d4" />
                         <Text style={styles.techLabel}>Predictive Modeling</Text>
                         <Text style={styles.techDescription}>Future trend forecasting</Text>
                       </View>
                       <View style={styles.techItem}>
-                        <Ionicons name="chatbubbles-outline" size={20} color="#10b981" />
+                        <Ionicons name="chatbubbles-outline" size={isMobile ? 16 : 20} color="#10b981" />
                         <Text style={styles.techLabel}>NLP Processing</Text>
                         <Text style={styles.techDescription}>Natural language sentiment analysis</Text>
                       </View>
@@ -4249,7 +4548,7 @@ File location: ${uri}
               {/* Empty State */}
               {aiInsights.insights.length === 0 && !aiInsights.loading && (
                 <View style={styles.emptyState}>
-                  <Ionicons name="analytics-outline" size={48} color="#d1d5db" />
+                  <Ionicons name="analytics-outline" size={isMobile ? 40 : 48} color="#d1d5db" />
                   <Text style={styles.emptyTitle}>No AI Insights Generated</Text>
                   <Text style={styles.emptyDescription}>
                     Click "Generate Insights" to analyze your platform data with AI
@@ -5289,7 +5588,7 @@ searchInput: {
   aiHeader: {
     backgroundColor: '#fff',
     borderRadius: 16,
-    padding: isMobile ? 12 : 20,
+    padding: isMobile ? 16 : 20,
     marginBottom: 20,
     borderWidth: 1,
     borderColor: '#e2e8f0',
@@ -5300,20 +5599,20 @@ searchInput: {
     elevation: 8,
   },
   iconContainer: {
-    width: 48,
-    height: 48,
+    width: isMobile ? 40 : 48,
+    height: isMobile ? 40 : 48,
     borderRadius: 12,
     backgroundColor: '#f1f5f9',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: isMobile ? 10 : 12,
   },
   statusIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f8fafc',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: isMobile ? 10 : 12,
+    paddingVertical: isMobile ? 4 : 6,
     borderRadius: 20,
   },
   statusDot: {
@@ -5323,18 +5622,18 @@ searchInput: {
     marginRight: 6,
   },
   statusText: {
-    fontSize: 12,
+    fontSize: isMobile ? 11 : 12,
     fontWeight: '600',
     color: '#475569',
   },
   aiTitle: {
-    fontSize: 22,
+    fontSize: isMobile ? 18 : 22,
     fontWeight: '700',
     color: '#1e293b',
     marginBottom: 2,
   },
   aiSubtitle: {
-    fontSize: 14,
+    fontSize: isMobile ? 12 : 14,
     color: '#64748b',
     fontWeight: '500',
   },
@@ -5342,8 +5641,8 @@ searchInput: {
     backgroundColor: '#6366f1',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: isMobile ? 16 : 20,
-    paddingVertical: isMobile ? 10 : 12,
+    paddingHorizontal: isMobile ? 12 : 20,
+    paddingVertical: isMobile ? 8 : 12,
     borderRadius: 12,
     shadowColor: '#6366f1',
     shadowOffset: { width: 0, height: 4 },
@@ -5351,6 +5650,7 @@ searchInput: {
     shadowRadius: 8,
     elevation: 4,
     alignSelf: isMobile ? 'center' : 'auto',
+    minWidth: isMobile ? 140 : 'auto',
   },
   generateBtnText: {
     color: '#fff',
@@ -5362,12 +5662,12 @@ searchInput: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f1f5f9',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: isMobile ? 10 : 12,
+    paddingVertical: isMobile ? 4 : 6,
     borderRadius: 8,
   },
   lastUpdated: {
-    fontSize: 12,
+    fontSize: isMobile ? 11 : 12,
     color: '#64748b',
     marginLeft: 4,
     fontWeight: '500',
@@ -5381,8 +5681,8 @@ searchInput: {
   statCard: {
     width: isMobile ? '100%' : '48%',
     borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
+    padding: isMobile ? 12 : 16,
+    marginBottom: isMobile ? 12 : 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -5412,32 +5712,32 @@ searchInput: {
     borderLeftColor: '#8b5cf6',
   },
   statIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
+    width: isMobile ? 32 : 40,
+    height: isMobile ? 32 : 40,
+    borderRadius: isMobile ? 8 : 10,
     backgroundColor: 'rgba(255,255,255,0.8)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: isMobile ? 10 : 12,
   },
   statContent: {
     flex: 1,
   },
   statNumber: {
-    fontSize: 24,
+    fontSize: isMobile ? 20 : 24,
     fontWeight: '700',
     color: '#1e293b',
     marginBottom: 2,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: isMobile ? 11 : 12,
     color: '#64748b',
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   statTrend: {
-    fontSize: 10,
+    fontSize: isMobile ? 9 : 10,
     color: '#059669',
     fontWeight: '500',
     marginTop: 2,
@@ -5461,8 +5761,8 @@ searchInput: {
     marginBottom: 12,
   },
   insightIcon: {
-    width: 32,
-    height: 32,
+    width: isMobile ? 28 : 32,
+    height: isMobile ? 28 : 32,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
@@ -5470,23 +5770,23 @@ searchInput: {
     marginBottom: isMobile ? 8 : 0,
   },
   insightTitle: {
-    fontSize: 16,
+    fontSize: isMobile ? 14 : 16,
     fontWeight: '600',
     color: '#1e293b',
     flex: 1,
   },
   insightTime: {
-    fontSize: 12,
+    fontSize: isMobile ? 11 : 12,
     color: '#64748b',
     marginTop: 2,
   },
   priorityBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: isMobile ? 6 : 8,
+    paddingVertical: isMobile ? 2 : 4,
     borderRadius: 6,
   },
   priorityText: {
-    fontSize: 10,
+    fontSize: isMobile ? 8 : 10,
     fontWeight: '700',
     color: '#fff',
   },
@@ -5494,12 +5794,12 @@ searchInput: {
     marginBottom: 8,
   },
   insightPreview: {
-    fontSize: 14,
+    fontSize: isMobile ? 12 : 14,
     color: '#374151',
     marginBottom: 4,
   },
   insightMetric: {
-    fontSize: 12,
+    fontSize: isMobile ? 11 : 12,
     color: '#6b7280',
   },
   expandIndicator: {
@@ -5511,7 +5811,7 @@ searchInput: {
     borderTopColor: '#f1f5f9',
   },
   expandText: {
-    fontSize: 12,
+    fontSize: isMobile ? 11 : 12,
     color: '#64748b',
     marginLeft: 4,
   },
@@ -5522,7 +5822,7 @@ searchInput: {
     borderTopColor: '#f1f5f9',
   },
   detailTitle: {
-    fontSize: 14,
+    fontSize: isMobile ? 12 : 14,
     fontWeight: '600',
     color: '#1e293b',
     marginBottom: 8,
@@ -5532,16 +5832,16 @@ searchInput: {
     marginBottom: 6,
   },
   detailItemTitle: {
-    fontSize: 13,
+    fontSize: isMobile ? 11 : 13,
     color: '#374151',
     fontWeight: '500',
   },
   detailItemMeta: {
-    fontSize: 11,
+    fontSize: isMobile ? 10 : 11,
     color: '#6b7280',
   },
   detailInsight: {
-    fontSize: 12,
+    fontSize: isMobile ? 11 : 12,
     color: '#4b5563',
     marginLeft: 8,
     marginBottom: 4,
@@ -5556,7 +5856,7 @@ searchInput: {
   sentimentCard: {
     backgroundColor: '#fff',
     borderRadius: 16,
-    padding: 16,
+    padding: isMobile ? 12 : 16,
     marginBottom: 16,
     borderWidth: 1,
     borderColor: '#e2e8f0',
@@ -5565,39 +5865,35 @@ searchInput: {
     flexDirection: isMobile ? 'column' : 'row',
     justifyContent: 'space-between',
     marginBottom: 12,
-    alignItems: isMobile ? 'center' : 'auto',
+    alignItems: isMobile ? 'stretch' : 'auto',
+    width: '100%',
   },
   sentimentItem: {
     flex: isMobile ? 0 : 1,
-    padding: 12,
+    padding: isMobile ? 12 : 12,
     borderRadius: 8,
     alignItems: 'center',
     marginHorizontal: isMobile ? 0 : 4,
     marginBottom: isMobile ? 12 : 0,
     width: isMobile ? '100%' : 'auto',
+    minHeight: isMobile ? 60 : 'auto',
+    justifyContent: 'center',
   },
   sentimentLabel: {
-    fontSize: 12,
+    fontSize: isMobile ? 12 : 12,
     color: '#6b7280',
-    marginBottom: 4,
+    marginBottom: isMobile ? 0 : 4,
+    fontWeight: isMobile ? '600' : 'normal',
   },
   sentimentValue: {
-    fontSize: 18,
+    fontSize: isMobile ? 18 : 18,
     fontWeight: '700',
   },
   sentimentOverall: {
-    fontSize: 14,
+    fontSize: isMobile ? 12 : 14,
     color: '#374151',
     textAlign: 'center',
     fontStyle: 'italic',
-  },
-  predictiveCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
   },
   predictionItem: {
     marginBottom: 16,
@@ -5612,14 +5908,14 @@ searchInput: {
     marginBottom: 8,
   },
   predictionTitle: {
-    fontSize: isMobile ? 13 : 14,
+    fontSize: isMobile ? 12 : 14,
     fontWeight: '600',
     color: '#1e293b',
     flex: 1,
     marginBottom: isMobile ? 8 : 0,
   },
   confidenceBar: {
-    width: 80,
+    width: isMobile ? 60 : 80,
     height: 6,
     backgroundColor: '#f1f5f9',
     borderRadius: 3,
@@ -5634,16 +5930,16 @@ searchInput: {
     position: 'absolute',
     top: -18,
     right: 0,
-    fontSize: 10,
+    fontSize: isMobile ? 9 : 10,
     color: '#6b7280',
   },
   predictionText: {
-    fontSize: 13,
+    fontSize: isMobile ? 12 : 13,
     color: '#374151',
     marginBottom: 4,
   },
   predictionMetric: {
-    fontSize: 11,
+    fontSize: isMobile ? 10 : 11,
     color: '#6b7280',
   },
   recommendationsSection: {
@@ -5653,7 +5949,7 @@ searchInput: {
     borderTopColor: '#f1f5f9',
   },
   recommendationsTitle: {
-    fontSize: 14,
+    fontSize: isMobile ? 13 : 14,
     fontWeight: '600',
     color: '#1e293b',
     marginBottom: 8,
@@ -5664,7 +5960,7 @@ searchInput: {
     marginBottom: 6,
   },
   recommendationText: {
-    fontSize: 12,
+    fontSize: isMobile ? 11 : 12,
     color: '#374151',
     marginLeft: 6,
     flex: 1,
@@ -5672,7 +5968,7 @@ searchInput: {
   healthCard: {
     backgroundColor: '#fff',
     borderRadius: 16,
-    padding: 16,
+    padding: isMobile ? 12 : 16,
     marginBottom: 16,
     borderWidth: 1,
     borderColor: '#e2e8f0',
@@ -5686,18 +5982,18 @@ searchInput: {
   healthItem: {
     flex: isMobile ? 0 : 1,
     alignItems: 'center',
-    padding: 12,
+    padding: isMobile ? 10 : 12,
     marginBottom: isMobile ? 12 : 0,
     width: isMobile ? '100%' : 'auto',
   },
   healthLabel: {
-    fontSize: 11,
+    fontSize: isMobile ? 10 : 11,
     color: '#6b7280',
     marginTop: 4,
     textAlign: 'center',
   },
   healthValue: {
-    fontSize: 12,
+    fontSize: isMobile ? 11 : 12,
     fontWeight: '600',
     marginTop: 2,
   },
@@ -5705,12 +6001,12 @@ searchInput: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fef3c7',
-    padding: 12,
+    padding: isMobile ? 10 : 12,
     borderRadius: 8,
     marginTop: 8,
   },
   anomalyText: {
-    fontSize: 12,
+    fontSize: isMobile ? 11 : 12,
     color: '#92400e',
     marginLeft: 6,
     flex: 1,
@@ -5718,7 +6014,7 @@ searchInput: {
   techCard: {
     backgroundColor: '#fff',
     borderRadius: 16,
-    padding: 16,
+    padding: isMobile ? 12 : 16,
     marginBottom: 16,
     borderWidth: 1,
     borderColor: '#e2e8f0',
@@ -5730,37 +6026,37 @@ searchInput: {
   },
   techItem: {
     width: isMobile ? '100%' : '48%',
-    padding: 12,
+    padding: isMobile ? 10 : 12,
     backgroundColor: '#f8fafc',
     borderRadius: 8,
     marginBottom: 12,
   },
   techLabel: {
-    fontSize: 13,
+    fontSize: isMobile ? 12 : 13,
     fontWeight: '600',
     color: '#1e293b',
     marginTop: 6,
     marginBottom: 4,
   },
   techDescription: {
-    fontSize: 11,
+    fontSize: isMobile ? 10 : 11,
     color: '#64748b',
     lineHeight: 16,
   },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 60,
+    paddingVertical: isMobile ? 40 : 60,
   },
   emptyTitle: {
-    fontSize: 18,
+    fontSize: isMobile ? 16 : 18,
     fontWeight: '600',
     color: '#9ca3af',
     marginTop: 16,
     marginBottom: 8,
   },
   emptyDescription: {
-    fontSize: 14,
+    fontSize: isMobile ? 12 : 14,
     color: '#6b7280',
     textAlign: 'center',
     lineHeight: 20,
@@ -6200,6 +6496,165 @@ searchInput: {
   faqHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  faqQuestion: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  faqAnswer: {
+    fontSize: 14,
+    color: '#374151',
+  },
+  faqActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  faqEditBtn: {
+    backgroundColor: '#eab308',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  faqDeleteBtn: {
+    backgroundColor: '#ef4444',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+  },
+  faqActionText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  tableSection: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  tableRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  tableCellText: {
+    fontSize: isMobile ? 12 : 14,
+    color: '#374151',
+    minWidth: isMobile ? 60 : 80,
+    marginBottom: isMobile ? 4 : 0,
+    flexWrap: 'wrap',
+  },
+  
+  // Charts Styles
+  chartsSection: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  chartContainer: {
+    marginBottom: 24,
+    padding: 12,
+    backgroundColor: '#f8fafc',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  chartTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1e293b',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  
+  // Search Styles
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "white",
+    margin: isMobile ? 8 : 16,
+    marginVertical: isMobile ? 6 : 12,
+    paddingHorizontal: isMobile ? 8 : 12,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    height: isMobile ? 40 : 45,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: isMobile ? 14 : 16,
+    color: "#374151",
+    paddingVertical: isMobile ? 4 : 6,
+  },
+  searchIcon: {
+    marginRight: isMobile ? 8 : 12,
+  },
+  searchResultsContainer: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    marginTop: 8,
+  },
+  searchResultItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e2e8f0",
+  },
+  searchResultTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#1e293b",
+  },
+  searchResultDescription: {
+    fontSize: 12,
+    color: "#6b7280",
+  },
+  searchResultIcon: {
+    marginRight: 8,
+  },
+  searchResultActions: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  searchResultEditBtn: {
+    backgroundColor: "#eab308",
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  searchResultDeleteBtn: {
+    backgroundColor: "#ef4444",
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+  },
+  searchResultActionText: {
+    color: "#fff",
+    fontWeight: "600",
+  },
+  searchNoResults: {
+    fontSize: 14,
+    color: "#6b7280",
+    textAlign: "center",
+    paddingVertical: 16,
+  },
+  faqHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 8,
   },
@@ -6257,7 +6712,7 @@ searchInput: {
     flexDirection: 'row',
     marginBottom: 16,
     flexWrap: 'wrap',
-    justifyContent: isMobile ? 'center' : 'auto',
+    justifyContent: isMobile ? 'center' : 'flex-start',
   },
   filterChip: {
     backgroundColor: '#f1f5f9',
