@@ -322,14 +322,36 @@ export default function HomeScreen() {
 
   const fetchUserProfile = async () => {
     try {
-      const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      let data = null;
+      
       if (userDoc.exists()) {
-        const data = userDoc.data();
-        setUserProfile(data);
-        try { setIsAdmin(!!data.isAdmin); } catch {}
-        // Recompute data once profile (tutor/student) is known
-        fetchData(true);
+        data = userDoc.data();
+      } else {
+        // Create initial profile for Google sign-in users
+        const initialProfile = {
+          email: user.email || '',
+          fullName: user.displayName || user.email?.split('@')[0] || 'User',
+          subjects: [],
+          expertiseLevel: 'beginner',
+          isTutor: false,
+          rating: 0,
+          studentsCount: 0,
+          createdAt: new Date(),
+          profileComplete: true
+        };
+        
+        await setDoc(doc(db, "users", user.uid), initialProfile);
+        data = initialProfile;
       }
+      
+      setUserProfile(data);
+      try { setIsAdmin(!!data.isAdmin); } catch {}
+      // Recompute data once profile (tutor/student) is known
+      fetchData(true);
     } catch (error) {
       console.error("Error fetching user profile:", error);
     }
@@ -447,7 +469,6 @@ export default function HomeScreen() {
         await fetchUserQuestions();
       }
       
-      // ... existing code ...
       // Helper: get accurate comment count from subcollection (avoids stale parent field)
       const getCommentCount = async (collectionName, parentId) => {
         try {
@@ -499,6 +520,7 @@ export default function HomeScreen() {
           content: resourceData.description,
           likes: resourceData.likes || 0,
           comments: liveComments,
+          views: resourceData.views || 0,
           time: formatTime(resourceData.uploadedAt),
           isTutor: userData.isTutor || false,
           resourceId: docSnapshot.id,
@@ -513,6 +535,66 @@ export default function HomeScreen() {
         });
       }
       setPosts(postsData);
+
+      // Fetch resources for resources tab
+      setResources(postsData);
+
+      // Fetch videos
+      const videosQuery = query(
+        collection(db, "videos"),
+        orderBy("uploadedAt", "desc"),
+        limit(20)
+      );
+      const videosSnapshot = await getDocs(videosQuery);
+      
+      const videosData = [];
+      for (const docSnapshot of videosSnapshot.docs) {
+        const videoData = docSnapshot.data();
+        const userDoc = await getDoc(doc(db, "users", videoData.uploadedBy));
+        const userData = userDoc.exists() ? userDoc.data() : {};
+        // live comments count
+        const liveComments = await getCommentCount('videos', docSnapshot.id);
+        // liked state for current user
+        let userLiked = false;
+        let userCommented = false;
+        let userReported = false;
+        if (auth.currentUser?.uid) {
+          const likeDoc = await getDoc(doc(db, "videos", docSnapshot.id, "likes", auth.currentUser.uid));
+          userLiked = likeDoc.exists();
+          const myCommentQuery = query(
+            collection(db, "videos", docSnapshot.id, "comments"),
+            where("userId", "==", auth.currentUser.uid),
+            limit(1)
+          );
+          const myCommentSnap = await getDocs(myCommentQuery);
+          userCommented = !myCommentSnap.empty;
+          const reportDoc = await getDoc(doc(db, "videos", docSnapshot.id, "reports", auth.currentUser.uid));
+          userReported = reportDoc.exists();
+          var reportReason = reportDoc.exists() ? (reportDoc.data()?.reason || "") : "";
+        }
+        
+        videosData.push({
+          id: docSnapshot.id,
+          user: videoData.uploadedByName || userData.fullName || "Unknown User",
+          subject: videoData.subject,
+          content: videoData.description,
+          likes: videoData.likes || 0,
+          comments: liveComments,
+          views: videoData.views || 0,
+          time: formatTime(videoData.uploadedAt),
+          isTutor: userData.isTutor || false,
+          videoId: docSnapshot.id,
+          videoUrl: videoData.videoUrl,
+          title: videoData.title,
+          platform: videoData.platform,
+          isOwner: videoData.uploadedBy === auth.currentUser?.uid,
+          userLiked,
+          userCommented,
+          userReported,
+          userReportReason: reportReason || "",
+        });
+      }
+      setVideos(videosData);
 
       // Fetch tutors (student view)
       const tutorsQuery = query(
@@ -588,63 +670,6 @@ export default function HomeScreen() {
 
       // Fetch resources for resources tab
       setResources(postsData);
-
-      // Fetch videos
-      const videosQuery = query(
-        collection(db, "videos"),
-        orderBy("uploadedAt", "desc"),
-        limit(20)
-      );
-      const videosSnapshot = await getDocs(videosQuery);
-      
-      const videosData = [];
-      for (const docSnapshot of videosSnapshot.docs) {
-        const videoData = docSnapshot.data();
-        const userDoc = await getDoc(doc(db, "users", videoData.uploadedBy));
-        const userData = userDoc.exists() ? userDoc.data() : {};
-        // live comments count
-        const liveComments = await getCommentCount('videos', docSnapshot.id);
-        // liked state for current user
-        let userLiked = false;
-        let userCommented = false;
-        let userReported = false;
-        if (auth.currentUser?.uid) {
-          const likeDoc = await getDoc(doc(db, "videos", docSnapshot.id, "likes", auth.currentUser.uid));
-          userLiked = likeDoc.exists();
-          const myCommentQuery = query(
-            collection(db, "videos", docSnapshot.id, "comments"),
-            where("userId", "==", auth.currentUser.uid),
-            limit(1)
-          );
-          const myCommentSnap = await getDocs(myCommentQuery);
-          userCommented = !myCommentSnap.empty;
-          const reportDoc = await getDoc(doc(db, "videos", docSnapshot.id, "reports", auth.currentUser.uid));
-          userReported = reportDoc.exists();
-          var reportReason = reportDoc.exists() ? (reportDoc.data()?.reason || "") : "";
-        }
-        
-        videosData.push({
-          id: docSnapshot.id,
-          user: videoData.uploadedByName || userData.fullName || "Unknown User",
-          subject: videoData.subject,
-          content: videoData.description,
-          likes: videoData.likes || 0,
-          comments: liveComments,
-          views: videoData.views || 0,
-          time: formatTime(videoData.uploadedAt),
-          isTutor: userData.isTutor || false,
-          videoId: docSnapshot.id,
-          videoUrl: videoData.videoUrl,
-          title: videoData.title,
-          platform: videoData.platform,
-          isOwner: videoData.uploadedBy === auth.currentUser?.uid,
-          userLiked,
-          userCommented,
-          userReported,
-          userReportReason: reportReason || "",
-        });
-      }
-      setVideos(videosData);
 
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -728,6 +753,25 @@ export default function HomeScreen() {
       fetchData(true);
     } catch (error) {
       console.error("Error viewing video:", error);
+    }
+  };
+
+  const handleResourceView = async (resourceId, downloadURL) => {
+    try {
+      // Update view count
+      await updateDoc(doc(db, "resources", resourceId), {
+        views: increment(1)
+      });
+      
+      // Open the resource URL
+      if (downloadURL) {
+        await Linking.openURL(downloadURL);
+      }
+      
+      // Refresh data
+      fetchData(true);
+    } catch (error) {
+      console.error("Error viewing resource:", error);
     }
   };
 
@@ -1201,6 +1245,13 @@ Anyone with this link can download the file directly.`,
           <Ionicons name="share-outline" size={20} color="#666" />
           <Text style={styles.actionText}>Share</Text>
         </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={() => handleResourceView(item.resourceId, item.downloadURL)}
+        >
+          <Ionicons name="eye-outline" size={20} color="#666" />
+          <Text style={styles.actionText}>{item.views || 0}</Text>
+        </TouchableOpacity>
         {!item.isOwner && (
           <TouchableOpacity 
             style={styles.actionButton}
@@ -1556,22 +1607,6 @@ Anyone with this link can download the file directly.`,
           />
         )}
 
-        {activeTab === "tutors" && (
-          <FlatList
-            data={filteredTutors}
-            renderItem={renderTutor}
-            keyExtractor={(item) => item.id.toString()}
-            scrollEnabled={false}
-          />
-        )}
-        {activeTab === "students" && (
-          <FlatList
-            data={filteredStudents}
-            renderItem={renderStudent}
-            keyExtractor={(item) => item.id.toString()}
-            scrollEnabled={false}
-          />
-        )}
         {activeTab === "tutors" && (
           <FlatList
             data={filteredTutors}
