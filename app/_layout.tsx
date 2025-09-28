@@ -22,6 +22,7 @@ function RootLayoutNav() {
       <Stack.Screen name="signin" />
       <Stack.Screen name="signup" />
       <Stack.Screen name="admin-setup" />
+      <Stack.Screen name="test-api" />
       
       {/* User screens - only accessible when authenticated */}
       {user && (
