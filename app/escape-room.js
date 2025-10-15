@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Camera, CameraView } from 'expo-camera';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { collection, deleteDoc, doc, getDoc, getDocs, limit, query, setDoc, where } from 'firebase/firestore';
 import { useCallback, useEffect, useState } from 'react';
@@ -15,74 +16,82 @@ import {
   View
 } from 'react-native';
 import * as Progress from 'react-native-progress';
+import { GalaxyAnimation } from '../components/GalaxyAnimation';
+import { GalaxyColors, cosmicGray, starGold, nebulaPink, cosmicBlue, spacePurple } from '../constants/GalaxyColors';
+import { GlobalStyles } from '../constants/GlobalStyles';
 import { auth, db } from '../firebase/firebaseConfig';
+import { smartNavigateBack } from '../utils/navigation';
 
-const { width, height } = Dimensions.get('window');
-
-// Add isMobile detection for responsive design
-const isMobile = width < 768;
-
-// Game levels configuration
+// Galaxy-themed escape room levels
 const GAME_LEVELS = [
   {
     id: 1,
-    title: "Science Lab Escape",
+    title: "Cosmic Laboratory",
     theme: "laboratory",
-    description: "Escape from a mysterious science laboratory by solving chemical equations and lab puzzles",
+    description: "Escape from a mysterious cosmic laboratory by solving quantum equations and stellar puzzles",
     icon: "flask",
-    color: "#4CAF50",
+    color: nebulaPink[500],
     points: 100,
-    badge: "Lab Master",
-    bgColor: "#E8F5E8"
+    badge: "Quantum Master",
+    bgColor: nebulaPink[50],
+    gradient: [nebulaPink[400], nebulaPink[600]]
   },
   {
     id: 2,
-    title: "Treasure Vault",
+    title: "Nebula Treasure Vault",
     theme: "treasure",
-    description: "Unlock an ancient treasure vault by solving mathematical riddles and logic puzzles",
+    description: "Unlock an ancient stellar vault by solving mathematical riddles and cosmic logic puzzles",
     icon: "diamond",
-    color: "#FF9800",
+    color: starGold[500],
     points: 150,
-    badge: "Treasure Hunter",
-    bgColor: "#FFF3E0"
+    badge: "Star Hunter",
+    bgColor: starGold[50],
+    gradient: [starGold[400], starGold[600]]
   },
   {
     id: 3,
-    title: "Space Station",
+    title: "Deep Space Station",
     theme: "space",
-    description: "Fix the space station's systems by solving physics and astronomy challenges",
+    description: "Fix the space station's systems by solving physics and astronomy challenges in deep space",
     icon: "planet",
-    color: "#673AB7",
+    color: spacePurple[500],
     points: 200,
     badge: "Space Explorer",
-    bgColor: "#F3E5F5"
+    bgColor: spacePurple[50],
+    gradient: [spacePurple[400], spacePurple[600]]
   },
   {
     id: 4,
-    title: "Ancient Library",
+    title: "Galactic Archives",
     theme: "library",
-    description: "Navigate through an ancient library by solving literature and history puzzles",
+    description: "Navigate through ancient galactic archives by solving literature and cosmic history puzzles",
     icon: "library",
-    color: "#795548",
+    color: cosmicBlue[500],
     points: 175,
-    badge: "Scholar",
-    bgColor: "#EFEBE9"
+    badge: "Cosmic Scholar",
+    bgColor: cosmicBlue[50],
+    gradient: [cosmicBlue[400], cosmicBlue[600]]
   },
   {
     id: 5,
-    title: "Digital Fortress",
+    title: "Quantum Fortress",
     theme: "cyber",
-    description: "Break into a digital fortress by solving coding and cybersecurity challenges",
+    description: "Break into a quantum fortress by solving advanced coding and cybersecurity challenges",
     icon: "shield-checkmark",
-    color: "#F44336",
+    color: cosmicGray[400],
     points: 250,
-    badge: "Cyber Guardian",
-    bgColor: "#FFEBEE"
+    badge: "Quantum Guardian",
+    bgColor: cosmicGray[50],
+    gradient: [cosmicGray[300], cosmicGray[500]]
   }
 ];
 
 export default function EscapeRoomGame() {
   const router = useRouter();
+  const [dimensions, setDimensions] = useState(() => {
+    const { width, height } = Dimensions.get('window');
+    return { width, height };
+  });
   const [userProgress, setUserProgress] = useState({
     completedLevels: [],
     currentLevel: 1,
@@ -119,6 +128,15 @@ export default function EscapeRoomGame() {
         // ignore role check errors
       }
     })();
+  }, []);
+
+  // Listen for dimension changes for responsive design
+  useEffect(() => {
+    const subscription = Dimensions.addEventListener('change', ({ window }) => {
+      setDimensions({ width: window.width, height: window.height });
+    });
+
+    return () => subscription?.remove();
   }, []);
 
   // Refresh user progress when screen is focused (returning from level)
@@ -351,6 +369,88 @@ export default function EscapeRoomGame() {
     }
   };
 
+  // Responsive variables
+  const { width, height } = dimensions;
+  const isMobile = width < 768;
+
+  // Dynamic styles based on current dimensions
+  const getResponsiveStyles = () => StyleSheet.create({
+    levelCard: {
+      width: isMobile ? '100%' : '47%',
+      marginBottom: 16,
+      borderRadius: 20,
+      elevation: isMobile ? 6 : 12,
+      shadowColor: spacePurple[400],
+      shadowOffset: { width: 0, height: isMobile ? 3 : 6 },
+      shadowOpacity: isMobile ? 0.25 : 0.4,
+      shadowRadius: isMobile ? 6 : 12,
+      minHeight: isMobile ? 180 : 240,
+      borderWidth: 1,
+      borderColor: 'rgba(255, 255, 255, 0.15)',
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: isMobile ? 16 : 20,
+      paddingTop: isMobile ? 12 : 16,
+      backgroundColor: 'transparent',
+      zIndex: 10,
+    },
+    headerTitle: {
+      fontSize: isMobile ? 16 : 20,
+      fontWeight: '700',
+      color: starGold[400],
+      textShadowColor: cosmicGray[900],
+      textShadowOffset: { width: 0, height: 1 },
+      textShadowRadius: 2,
+    },
+    content: {
+      flex: 1,
+      paddingHorizontal: isMobile ? 16 : 20,
+    },
+    sectionTitle: {
+      fontSize: isMobile ? 16 : 18,
+      fontWeight: '700',
+      color: starGold[400],
+      marginLeft: 12,
+      textShadowColor: cosmicGray[900],
+      textShadowOffset: { width: 0, height: 1 },
+      textShadowRadius: 2,
+    },
+    progressSection: {
+      marginBottom: isMobile ? 20 : 32,
+      borderRadius: 20,
+      padding: isMobile ? 16 : 24,
+      borderWidth: 1,
+      borderColor: 'rgba(255, 255, 255, 0.1)',
+    },
+    levelsSection: {
+      marginBottom: isMobile ? 20 : 32,
+      paddingHorizontal: 0,
+    },
+    levelsGridContainer: {
+      paddingHorizontal: 0,
+      width: '100%',
+      overflow: 'hidden',
+    },
+    tutorInfoModal: {
+      backgroundColor: '#fff',
+      borderRadius: 16,
+      width: width * 0.9,
+      maxWidth: 400,
+      maxHeight: height * 0.8,
+      overflow: 'hidden',
+    },
+    confirmModal: {
+      backgroundColor: '#fff',
+      borderRadius: 16,
+      width: width * 0.9,
+      maxWidth: 420,
+      padding: 20,
+    },
+  });
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -363,96 +463,146 @@ export default function EscapeRoomGame() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Galaxy Background */}
+      <LinearGradient
+        colors={[spacePurple[900], cosmicBlue[800], cosmicGray[900]]}
+        style={styles.backgroundGradient}
+      />
+      <GalaxyAnimation style={styles.galaxyAnimation} />
+      
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+      <View style={getResponsiveStyles().header}>
+        <TouchableOpacity 
+          onPress={() => smartNavigateBack(router, '/escape-room')}
+          style={styles.headerButton}
+        >
+          <Ionicons name="arrow-back" size={24} color={starGold[400]} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Escape Room Challenge</Text>
-        <TouchableOpacity onPress={() => setShowQRScanner(true)}>
-          <Ionicons name="qr-code-outline" size={24} color="#fff" />
+        <View style={styles.headerTitleContainer}>
+          <Ionicons name="planet-outline" size={isMobile ? 24 : 28} color={starGold[400]} />
+          <Text style={getResponsiveStyles().headerTitle}>Cosmic Escape Rooms</Text>
+        </View>
+        <TouchableOpacity 
+          onPress={() => setShowQRScanner(true)}
+          style={styles.headerButton}
+        >
+          <Ionicons name="qr-code-outline" size={24} color={starGold[400]} />
         </TouchableOpacity>
       </View>
 
       <ScrollView 
-        style={styles.content}
+        style={getResponsiveStyles().content}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
         {/* Progress Overview */}
-        <View style={styles.progressSection}>
-          <Text style={styles.sectionTitle}>Your Progress</Text>
-          <View style={styles.progressContainer}>
-            <View style={styles.progressInfo}>
-              <Text style={styles.progressText}>
-                {userProgress.completedLevels.length} / {GAME_LEVELS.length} Levels
-              </Text>
-              <Text style={styles.pointsText}>
-                {userProgress.totalPoints} Points
-              </Text>
-            </View>
-            <Progress.Bar
-              progress={getProgressPercentage() / 100}
-              width={width - 64}
-              height={10}
-              color="#4CAF50"
-              unfilledColor="#E0E0E0"
-              borderWidth={0}
-              borderRadius={5}
-            />
+        <LinearGradient
+          colors={[cosmicBlue[800], spacePurple[700]]}
+          style={getResponsiveStyles().progressSection}
+        >
+          <View style={styles.progressHeader}>
+            <Ionicons name="stats-chart" size={24} color={starGold[400]} />
+            <Text style={getResponsiveStyles().sectionTitle}>Cosmic Journey Progress</Text>
           </View>
-        </View>
+          <View style={styles.progressContainer}>
+            <View style={styles.progressStats}>
+              <View style={styles.statItem}>
+                <Text style={styles.statNumber}>{userProgress.completedLevels.length}</Text>
+                <Text style={styles.statLabel}>Levels Completed</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statNumber}>{userProgress.totalPoints}</Text>
+                <Text style={styles.statLabel}>Cosmic Points</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statNumber}>{userProgress.badges.length}</Text>
+                <Text style={styles.statLabel}>Star Badges</Text>
+              </View>
+            </View>
+            <View style={styles.progressBarContainer}>
+              <View style={styles.progressBarWrapper}>
+                <Progress.Bar
+                  progress={getProgressPercentage() / 100}
+                  width={width - (isMobile ? 60 : 80)}
+                  height={8}
+                  color={starGold[400]}
+                  unfilledColor={cosmicGray[600]}
+                  borderWidth={0}
+                  borderRadius={4}
+                />
+                <Text style={styles.progressPercentage}>
+                  {Math.round(getProgressPercentage())}% Complete
+                </Text>
+              </View>
+            </View>
+          </View>
+        </LinearGradient>
 
-        {/* Badges Section */}
+        {/* Star Badges Section */}
         {userProgress.badges.length > 0 && (
           <View style={styles.badgesSection}>
-            <Text style={styles.sectionTitle}>Your Badges</Text>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="star" size={24} color={starGold[400]} />
+              <Text style={getResponsiveStyles().sectionTitle}>Star Badge Collection</Text>
+            </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View style={styles.badgesContainer}>
                 {userProgress.badges.map((badge, index) => (
-                  <View key={index} style={styles.badgeItem}>
-                    <Ionicons name="trophy" size={24} color="#FFD700" />
+                  <LinearGradient
+                    key={index}
+                    colors={[starGold[400], starGold[600]]}
+                    style={styles.badgeItem}
+                  >
+                    <Ionicons name="trophy" size={28} color={cosmicGray[900]} />
                     <Text style={styles.badgeText}>{badge}</Text>
-                  </View>
+                  </LinearGradient>
                 ))}
               </View>
             </ScrollView>
           </View>
         )}
 
-        {/* Custom Games Section */}
+        {/* Tutor-Created Cosmic Games Section */}
         {customGames.length > 0 && (
-          <View style={styles.levelsSection}>
-            <Text style={styles.sectionTitle}>Tutor-Created Games</Text>
-            <View style={[styles.levelsGrid, isMobile && styles.levelsGridMobile]}>
+          <View style={getResponsiveStyles().levelsSection}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="telescope" size={24} color={nebulaPink[400]} />
+              <Text style={getResponsiveStyles().sectionTitle}>Tutor-Created Cosmic Games</Text>
+            </View>
+            <View style={[getResponsiveStyles().levelsGridContainer]}>
+              <View style={[styles.levelsGrid, isMobile && styles.levelsGridMobile]}>
               {customGames.map((game) => {
                 const gameTypeIcons = {
-                  quiz: 'help-circle',
-                  memory: 'grid',
-                  puzzle: 'text'
+                  quiz: 'help-circle-outline',
+                  memory: 'grid-outline',
+                  puzzle: 'extension-puzzle-outline'
                 };
                 const gameTypeColors = {
-                  quiz: '#2196F3',
-                  memory: '#673AB7', 
-                  puzzle: '#FF9800'
+                  quiz: [cosmicBlue[400], cosmicBlue[600]],
+                  memory: [spacePurple[400], spacePurple[600]], 
+                  puzzle: [starGold[400], starGold[600]]
                 };
                 
                 return (
-                  <TouchableOpacity
+                  <LinearGradient
                     key={game.id}
-                    style={[
-                      styles.levelCard,
-                      { backgroundColor: `${gameTypeColors[game.type] || '#2196F3'}15` },
-                      isMobile && styles.levelCardMobile
-                    ]}
-                    onPress={() => navigateToCustomGame(game)}
+                    colors={gameTypeColors[game.type] || gameTypeColors.quiz}
+                    style={getResponsiveStyles().levelCard}
                   >
-                    <View style={styles.levelHeader}>
-                      <Ionicons
-                        name={gameTypeIcons[game.type] || 'game-controller'}
-                        size={24}
-                        color={gameTypeColors[game.type] || '#2196F3'}
-                      />
+                    <TouchableOpacity
+                      style={styles.levelCardContent}
+                      onPress={() => navigateToCustomGame(game)}
+                    >
+                      <View style={styles.levelHeader}>
+                        <View style={styles.levelIconContainer}>
+                          <Ionicons
+                            name={gameTypeIcons[game.type] || 'game-controller-outline'}
+                            size={28}
+                            color={cosmicGray[50]}
+                          />
+                        </View>
                       <View style={styles.gameTypeContainer}>
                         <Text style={[styles.gameTypeText, { color: gameTypeColors[game.type] }]}>
                           {game.type?.toUpperCase() || 'GAME'}
@@ -518,61 +668,91 @@ export default function EscapeRoomGame() {
                         Played {game.playCount || 0} times • By {game.createdByName}
                       </Text>
                     </View>
-                  </TouchableOpacity>
+                    </TouchableOpacity>
+                  </LinearGradient>
                 );
               })}
+              </View>
             </View>
           </View>
         )}
-        {/* Built-in Escape Room Levels */}
-        <View style={styles.levelsSection}>
-          <Text style={styles.sectionTitle}>Escape Room Challenges</Text>
-          <View style={[styles.levelsGrid, isMobile && styles.levelsGridMobile]}>
+        {/* Galaxy Escape Room Challenges */}
+        <View style={getResponsiveStyles().levelsSection}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="rocket" size={24} color={spacePurple[400]} />
+            <Text style={getResponsiveStyles().sectionTitle}>Galaxy Escape Challenges</Text>
+          </View>
+          <View style={getResponsiveStyles().levelsGridContainer}>
+            <View style={[styles.levelsGrid, isMobile && styles.levelsGridMobile]}>
             {GAME_LEVELS.map((level) => {
               const status = getLevelStatus(level.id);
               return (
-                <TouchableOpacity
+                <LinearGradient
                   key={level.id}
+                  colors={status === 'locked' 
+                    ? [cosmicGray[700], cosmicGray[800]]
+                    : level.gradient
+                  }
                   style={[
-                    styles.levelCard,
-                    { backgroundColor: level.bgColor },
-                    status === 'locked' && styles.lockedCard,
-                    isMobile && styles.levelCardMobile
+                    getResponsiveStyles().levelCard,
+                    status === 'locked' && styles.lockedCard
                   ]}
-                  onPress={() => navigateToLevel(level.id)}
-                  disabled={status === 'locked'}
+                >
+                  <TouchableOpacity
+                    style={styles.levelCardContent}
+                    onPress={() => navigateToLevel(level.id)}
+                    disabled={status === 'locked'}
                 >
                   <View style={styles.levelHeader}>
-                    <Ionicons
-                      name={level.icon}
-                      size={24}
-                      color={status === 'locked' ? '#999' : level.color}
-                    />
-                    {status === 'completed' && (
-                      <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
-                    )}
-                    {status === 'locked' && (
-                      <Ionicons name="lock-closed" size={20} color="#999" />
-                    )}
+                    <View style={styles.levelIconContainer}>
+                      <Ionicons
+                        name={level.icon}
+                        size={28}
+                        color={status === 'locked' ? cosmicGray[400] : cosmicGray[50]}
+                      />
+                    </View>
+                    <View style={styles.levelStatusContainer}>
+                      {status === 'completed' && (
+                        <LinearGradient
+                          colors={[starGold[400], starGold[600]]}
+                          style={styles.statusBadge}
+                        >
+                          <Ionicons name="checkmark-circle" size={16} color={cosmicGray[900]} />
+                          <Text style={styles.statusText}>Complete</Text>
+                        </LinearGradient>
+                      )}
+                      {status === 'locked' && (
+                        <View style={styles.lockedBadge}>
+                          <Ionicons name="lock-closed" size={16} color={cosmicGray[400]} />
+                          <Text style={styles.lockedStatusText}>Locked</Text>
+                        </View>
+                      )}
+                    </View>
                   </View>
                   
-                  <Text style={[
-                    styles.levelTitle,
-                    status === 'locked' && styles.lockedText
-                  ]}>
-                    {level.title}
-                  </Text>
-                  
-                  <Text style={[
-                    styles.levelDescription,
-                    status === 'locked' && styles.lockedText
-                  ]}>
-                    {level.description}
-                  </Text>
+                  <View style={styles.levelContent}>
+                    <Text style={[
+                      styles.levelTitle,
+                      status === 'locked' && styles.lockedText
+                    ]}>
+                      {level.title}
+                    </Text>
+                    
+                    <Text style={[
+                      styles.levelDescription,
+                      status === 'locked' && styles.lockedText
+                    ]}>
+                      {level.description}
+                    </Text>
+                  </View>
                   
                   <View style={styles.levelFooter}>
                     <View style={styles.pointsContainer}>
-                      <Ionicons name="star" size={16} color="#FFD700" />
+                      <Ionicons 
+                        name="star" 
+                        size={18} 
+                        color={status === 'locked' ? cosmicGray[400] : starGold[400]} 
+                      />
                       <Text style={[
                         styles.levelPoints,
                         status === 'locked' && styles.lockedText
@@ -580,16 +760,24 @@ export default function EscapeRoomGame() {
                         {level.points} pts
                       </Text>
                     </View>
+                    <Text style={[
+                      styles.levelBadge,
+                      status === 'locked' && styles.lockedText
+                    ]}>
+                      {level.badge}
+                    </Text>
                   </View>
-                </TouchableOpacity>
+                  </TouchableOpacity>
+                </LinearGradient>
               );
             })}
+          </View>
           </View>
         </View>
 
         {/* Quick Start Section */}
         <View style={styles.quickStartSection}>
-          <Text style={styles.sectionTitle}>Quick Access</Text>
+          <Text style={getResponsiveStyles().sectionTitle}>Quick Access</Text>
           <TouchableOpacity
             style={styles.qrButton}
             onPress={() => setShowQRScanner(true)}
@@ -674,7 +862,7 @@ export default function EscapeRoomGame() {
         onRequestClose={() => setShowTutorInfoModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.tutorInfoModal}>
+          <View style={getResponsiveStyles().tutorInfoModal}>
             <View style={styles.tutorInfoHeader}>
               <Ionicons name="person-circle" size={40} color="#673AB7" />
               <Text style={styles.tutorInfoTitle}>Tutor Achievement</Text>
@@ -764,7 +952,7 @@ export default function EscapeRoomGame() {
         onRequestClose={() => setConfirmDeleteVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.confirmModal}>
+          <View style={getResponsiveStyles().confirmModal}>
             <View style={styles.confirmHeader}>
               {gamePendingDelete?.__action === 'edit' ? (
                 <>
@@ -821,95 +1009,161 @@ export default function EscapeRoomGame() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: cosmicGray[900],
+  },
+  backgroundGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+  },
+  galaxyAnimation: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    opacity: 0.3,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: cosmicGray[900],
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#16213e',
-    borderBottomWidth: 1,
-    borderBottomColor: '#2a2a4a',
+    padding: 20,
+    paddingTop: 16,
+    backgroundColor: 'transparent',
+    zIndex: 10,
+  },
+  headerButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: `${cosmicGray[800]}80`,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: starGold[400],
+  },
+  headerTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#fff',
+    fontSize: 20,
+    fontWeight: '700',
+    color: starGold[400],
+    textShadowColor: cosmicGray[900],
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   content: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 20,
+    paddingBottom: 40,
+    flexGrow: 1,
   },
-  progressSection: {
-    backgroundColor: '#16213e',
-    margin: 16,
-    marginBottom: 12,
-    padding: 16,
-    borderRadius: 12,
+  progressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    gap: 12,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 12,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-    marginBottom: 12,
+    fontSize: 20,
+    fontWeight: '700',
+    color: starGold[400],
+    textShadowColor: cosmicGray[900],
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   progressContainer: {
-    alignItems: 'center',
+    gap: 20,
   },
-  progressInfo: {
+  progressStats: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    width: '100%',
-    marginBottom: 12,
+    alignItems: 'center',
   },
-  progressText: {
-    fontSize: 16,
-    color: '#fff',
-    fontWeight: '500',
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
   },
-  pointsText: {
-    fontSize: 16,
-    color: '#4CAF50',
+  statNumber: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: starGold[400],
+    textShadowColor: cosmicGray[900],
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  statLabel: {
+    fontSize: 12,
     fontWeight: '600',
+    color: cosmicBlue[300],
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  statDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: cosmicBlue[600],
+    marginHorizontal: 10,
+  },
+  progressBarContainer: {
+    alignItems: 'center',
+  },
+  progressBarWrapper: {
+    alignItems: 'center',
+    gap: 12,
+  },
+  progressPercentage: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: starGold[400],
   },
   badgesSection: {
-    backgroundColor: '#16213e',
-    margin: 16,
-    marginTop: 0,
-    marginBottom: 12,
-    padding: 16,
-    borderRadius: 12,
+    marginBottom: 24,
+    paddingHorizontal: 20,
   },
   badgesContainer: {
     flexDirection: 'row',
+    paddingHorizontal: 4,
   },
   badgeItem: {
     alignItems: 'center',
     marginRight: 16,
-    padding: 10,
-    backgroundColor: '#2a2a4a',
-    borderRadius: 8,
-    minWidth: 70,
+    padding: 16,
+    borderRadius: 16,
+    minWidth: 80,
+    shadowColor: starGold[400],
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
   badgeText: {
-    fontSize: 10,
-    color: '#fff',
-    marginTop: 4,
+    fontSize: 12,
+    fontWeight: '600',
+    color: cosmicGray[900],
+    marginTop: 8,
     textAlign: 'center',
   },
-  levelsSection: {
-    margin: 16,
-    marginTop: 0,
-    marginBottom: 12,
-  },
+
   levelsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -919,44 +1173,76 @@ const styles = StyleSheet.create({
   levelsGridMobile: {
     flexDirection: 'column',
   },
-  levelCard: {
-    width: (width - 48) / 2,
-    marginBottom: 12,
-    padding: 12,
-    borderRadius: 10,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    minHeight: 140,
-  },
-  // Add mobile card styles
-  levelCardMobile: {
-    width: '100%',
-    minHeight: 120,
+
+  levelCardContent: {
+    flex: 1,
+    padding: 20,
   },
   lockedCard: {
-    opacity: 0.5,
+    opacity: 0.7,
   },
   levelHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  levelIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+  },
+  levelStatusContainer: {
+    flexDirection: 'row',
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 6,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: cosmicGray[900],
+  },
+  lockedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    gap: 6,
+  },
+  lockedStatusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: cosmicGray[400],
+  },
+  levelContent: {
+    flex: 1,
+    marginBottom: 16,
   },
   levelTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 6,
-    lineHeight: 16,
+    fontSize: 16,
+    fontWeight: '700',
+    color: cosmicGray[50],
+    marginBottom: 8,
+    lineHeight: 22,
+    textShadowColor: cosmicGray[900],
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   levelDescription: {
-    fontSize: 11,
-    color: '#666',
-    lineHeight: 14,
-    marginBottom: 8,
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.8)',
+    lineHeight: 18,
     flex: 1,
   },
   levelFooter: {
@@ -967,10 +1253,21 @@ const styles = StyleSheet.create({
   pointsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
   },
   levelPoints: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: starGold[400],
+  },
+  levelBadge: {
     fontSize: 11,
     fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.7)',
+    textTransform: 'uppercase',
+  },
+  lockedText: {
+    color: cosmicGray[400],
     color: '#333',
     marginLeft: 4,
   },
@@ -1107,21 +1404,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  tutorInfoModal: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    width: width * 0.9,
-    maxWidth: 400,
-    maxHeight: height * 0.8,
-    overflow: 'hidden',
-  },
-  confirmModal: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    width: width * 0.9,
-    maxWidth: 420,
-    padding: 20,
-  },
+
   confirmHeader: {
     flexDirection: 'row',
     alignItems: 'center',
