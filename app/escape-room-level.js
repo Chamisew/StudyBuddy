@@ -16,11 +16,6 @@ import {
 } from 'react-native';
 import { auth, db } from '../firebase/firebaseConfig';
 
-const { width, height } = Dimensions.get('window');
-
-// Add isMobile detection for responsive design
-const isMobile = width < 768;
-
 // Puzzle configurations for different themes
 const PUZZLES_DATA = {
   laboratory: [
@@ -372,6 +367,10 @@ export default function EscapeRoomLevel() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { levelId, theme, title, points, badge } = params;
+  const [dimensions, setDimensions] = useState(() => {
+    const { width, height } = Dimensions.get('window');
+    return { width, height };
+  });
 
   // Validate required parameters
   if (!levelId || !theme) {
@@ -439,6 +438,15 @@ export default function EscapeRoomLevel() {
       mounted = false;
     };
   }, [currentPuzzle, userAnswers]);
+
+  // Listen for dimension changes for responsive design
+  useEffect(() => {
+    const subscription = Dimensions.addEventListener('change', ({ window }) => {
+      setDimensions({ width: window.width, height: window.height });
+    });
+
+    return () => subscription?.remove();
+  }, []);
 
   const checkGameCompletion = () => {
     console.log('🎮 Starting game completion check...');
@@ -796,6 +804,31 @@ export default function EscapeRoomLevel() {
     );
   }
 
+  // Responsive variables
+  const { width, height } = dimensions;
+  const isMobile = width < 768;
+
+  // Dynamic styles based on current dimensions
+  const getResponsiveStyles = () => StyleSheet.create({
+    successModal: {
+      backgroundColor: '#fff',
+      borderRadius: 16,
+      width: width * 0.9,
+      maxWidth: 400,
+      overflow: 'hidden',
+      borderWidth: 3,
+    },
+    answerSheetModal: {
+      backgroundColor: '#fff',
+      borderRadius: 16,
+      width: width * 0.95,
+      maxWidth: 500,
+      maxHeight: height * 0.9,
+      overflow: 'hidden',
+      borderWidth: 3,
+    },
+  });
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeConfig.backgroundColor }]}>
       {/* Header */}
@@ -935,7 +968,7 @@ export default function EscapeRoomLevel() {
         onRequestClose={() => setShowAnswerSheet(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.answerSheetModal, { borderColor: themeConfig.primaryColor }]}>
+          <View style={[getResponsiveStyles().answerSheetModal, { borderColor: themeConfig.primaryColor }]}>
             <View style={[styles.answerSheetHeader, { backgroundColor: themeConfig.primaryColor }]}>
               <Ionicons name="document-text" size={32} color="#fff" />
               <Text style={styles.answerSheetTitle}>Answer Sheet</Text>
@@ -1065,7 +1098,7 @@ export default function EscapeRoomLevel() {
         onRequestClose={() => setShowSuccess(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.successModal, { borderColor: themeConfig.primaryColor }]}>
+          <View style={[getResponsiveStyles().successModal, { borderColor: themeConfig.primaryColor }]}>
             <View style={[styles.successHeader, { backgroundColor: themeConfig.primaryColor }]}>
               <Ionicons name="trophy" size={40} color="#FFD700" />
               <Text style={styles.successTitle}>Level Complete!</Text>
@@ -1327,14 +1360,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  successModal: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    width: width * 0.9,
-    maxWidth: 400,
-    overflow: 'hidden',
-    borderWidth: 3,
-  },
+
   successHeader: {
     alignItems: 'center',
     padding: 24,
@@ -1411,16 +1437,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
-  // Answer Sheet Modal Styles
-  answerSheetModal: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    width: width * 0.95,
-    maxWidth: 500,
-    maxHeight: height * 0.9,
-    overflow: 'hidden',
-    borderWidth: 3,
-  },
+
   answerSheetHeader: {
     alignItems: 'center',
     padding: 20,
