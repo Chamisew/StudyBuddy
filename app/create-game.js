@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { addDoc, collection, doc, getDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
@@ -13,6 +14,9 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import { GalaxyAnimation } from '../components/GalaxyAnimation';
+import { GalaxyColors, cosmicGray, starGold, nebulaPink, cosmicBlue, spacePurple } from '../constants/GalaxyColors';
+import { GlobalStyles } from '../constants/GlobalStyles';
 import { auth, db } from '../firebase/firebaseConfig';
 
 export default function CreateGame() {
@@ -262,125 +266,233 @@ export default function CreateGame() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Galaxy Background */}
+      <LinearGradient
+        colors={[spacePurple[900], cosmicBlue[800], cosmicGray[900]]}
+        style={styles.backgroundGradient}
+      />
+      <GalaxyAnimation style={styles.galaxyAnimation} />
+      
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+        <TouchableOpacity 
+          onPress={() => router.back()}
+          style={styles.headerButton}
+        >
+          <Ionicons name="arrow-back" size={24} color={starGold[400]} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{isEditing ? 'Edit Game' : 'Create Game'}</Text>
-        <TouchableOpacity onPress={() => setShowPreview(true)}>
-          <Ionicons name="eye" size={24} color="#fff" />
+        <View style={styles.headerTitleContainer}>
+          <Ionicons 
+            name={isEditing ? "create" : "add-circle-outline"} 
+            size={28} 
+            color={starGold[400]} 
+          />
+          <Text style={styles.headerTitle}>
+            {isEditing ? 'Edit Cosmic Game' : 'Create Cosmic Game'}
+          </Text>
+        </View>
+        <TouchableOpacity 
+          onPress={() => setShowPreview(true)}
+          style={styles.headerButton}
+        >
+          <Ionicons name="eye" size={24} color={starGold[400]} />
         </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.content}>
         {/* Game Type Selection */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Game Type</Text>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="game-controller" size={24} color={nebulaPink[400]} />
+            <Text style={styles.sectionTitle}>Choose Game Type</Text>
+          </View>
           <View style={styles.gameTypeContainer}>
             {[
-              { type: 'quiz', label: 'Quiz Game', icon: 'help-circle' },
-              { type: 'memory', label: 'Memory Challenge', icon: 'brain' },
-              { type: 'puzzle', label: 'Word Puzzle', icon: 'grid' }
-            ].map(({ type, label, icon }) => (
-              <TouchableOpacity
+              { 
+                type: 'quiz', 
+                label: 'Quiz Galaxy', 
+                icon: 'help-circle-outline',
+                description: 'Interactive Q&A challenges',
+                gradient: [cosmicBlue[400], cosmicBlue[600]]
+              },
+              { 
+                type: 'memory', 
+                label: 'Memory Nebula', 
+                icon: 'grid-outline',
+                description: 'Card matching adventures',
+                gradient: [spacePurple[400], spacePurple[600]]
+              },
+              { 
+                type: 'puzzle', 
+                label: 'Word Constellation', 
+                icon: 'extension-puzzle-outline',
+                description: 'Word finding mysteries',
+                gradient: [starGold[400], starGold[600]]
+              }
+            ].map(({ type, label, icon, description, gradient }) => (
+              <LinearGradient
                 key={type}
+                colors={gameType === type ? gradient : [cosmicGray[700], cosmicGray[800]]}
                 style={[
                   styles.gameTypeButton,
                   gameType === type && styles.selectedGameType
                 ]}
-                onPress={() => setGameType(type)}
               >
-                <Ionicons 
-                  name={icon} 
-                  size={24} 
-                  color={gameType === type ? '#fff' : '#4CAF50'} 
-                />
-                <Text style={[
-                  styles.gameTypeText,
-                  gameType === type && styles.selectedGameTypeText
-                ]}>
-                  {label}
-                </Text>
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.gameTypeContent}
+                  onPress={() => setGameType(type)}
+                >
+                  <View style={styles.gameTypeIconContainer}>
+                    <Ionicons 
+                      name={icon} 
+                      size={28} 
+                      color={gameType === type ? cosmicGray[50] : cosmicGray[300]} 
+                    />
+                  </View>
+                  <View style={styles.gameTypeTextContainer}>
+                    <Text style={[
+                      styles.gameTypeText,
+                      gameType === type && styles.selectedGameTypeText
+                    ]}>
+                      {label}
+                    </Text>
+                    <Text style={[
+                      styles.gameTypeDescription,
+                      gameType === type && styles.selectedGameTypeDescription
+                    ]}>
+                      {description}
+                    </Text>
+                  </View>
+                  {gameType === type && (
+                    <View style={styles.selectedIndicator}>
+                      <Ionicons name="checkmark-circle" size={20} color={starGold[400]} />
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </LinearGradient>
             ))}
           </View>
         </View>
 
         {/* Basic Game Info */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Game Information</Text>
+        <LinearGradient
+          colors={[cosmicBlue[800], spacePurple[700]]}
+          style={styles.section}
+        >
+          <View style={styles.sectionHeader}>
+            <Ionicons name="information-circle" size={24} color={starGold[400]} />
+            <Text style={styles.sectionTitle}>Game Information</Text>
+          </View>
           
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Game Title</Text>
-            <TextInput
-              style={styles.textInput}
-              value={gameTitle}
-              onChangeText={setGameTitle}
-              placeholder="Enter an exciting game title"
-              maxLength={50}
-            />
+            <Text style={styles.inputLabel}>
+              <Ionicons name="text" size={16} color={starGold[400]} /> Game Title
+            </Text>
+            <View style={styles.inputWrapper}>
+              <TextInput
+                style={styles.textInput}
+                value={gameTitle}
+                onChangeText={setGameTitle}
+                placeholder="Enter an exciting game title"
+                placeholderTextColor={cosmicGray[400]}
+                maxLength={50}
+              />
+            </View>
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Description</Text>
-            <TextInput
-              style={[styles.textInput, styles.textArea]}
-              value={gameDescription}
-              onChangeText={setGameDescription}
-              placeholder="Describe what this game is about"
-              multiline
-              numberOfLines={3}
-              maxLength={200}
-            />
+            <Text style={styles.inputLabel}>
+              <Ionicons name="document-text" size={16} color={starGold[400]} /> Description
+            </Text>
+            <View style={styles.inputWrapper}>
+              <TextInput
+                style={[styles.textInput, styles.textArea]}
+                value={gameDescription}
+                onChangeText={setGameDescription}
+                placeholder="Describe what this cosmic adventure is about..."
+                placeholderTextColor={cosmicGray[400]}
+                multiline
+                numberOfLines={3}
+                maxLength={200}
+              />
+            </View>
           </View>
 
           <View style={styles.row}>
             <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-              <Text style={styles.inputLabel}>Subject</Text>
-              <TextInput
-                style={styles.textInput}
-                value={subject}
-                onChangeText={setSubject}
-                placeholder="Math, Science, etc."
-              />
+              <Text style={styles.inputLabel}>
+                <Ionicons name="school" size={16} color={starGold[400]} /> Subject
+              </Text>
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  style={styles.textInput}
+                  value={subject}
+                  onChangeText={setSubject}
+                  placeholder="Math, Science, etc."
+                  placeholderTextColor={cosmicGray[400]}
+                />
+              </View>
             </View>
 
             <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-              <Text style={styles.inputLabel}>Points</Text>
-              <TextInput
-                style={styles.textInput}
-                value={points}
-                onChangeText={setPoints}
-                placeholder="50"
-                keyboardType="numeric"
-              />
+              <Text style={styles.inputLabel}>
+                <Ionicons name="star" size={16} color={starGold[400]} /> Points
+              </Text>
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  style={styles.textInput}
+                  value={points}
+                  onChangeText={setPoints}
+                  placeholder="50"
+                  placeholderTextColor={cosmicGray[400]}
+                  keyboardType="numeric"
+                />
+              </View>
             </View>
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Difficulty</Text>
+            <Text style={styles.inputLabel}>
+              <Ionicons name="speedometer" size={16} color={starGold[400]} /> Difficulty Level
+            </Text>
             <View style={styles.difficultyContainer}>
-              {['Easy', 'Medium', 'Hard'].map((level) => (
-                <TouchableOpacity
+              {[
+                { level: 'Easy', icon: 'flower', color: nebulaPink[400] },
+                { level: 'Medium', icon: 'planet', color: cosmicBlue[400] },
+                { level: 'Hard', icon: 'rocket', color: spacePurple[400] }
+              ].map(({ level, icon, color }) => (
+                <LinearGradient
                   key={level}
+                  colors={difficulty === level 
+                    ? [color, `${color}CC`]
+                    : [cosmicGray[700], cosmicGray[800]]
+                  }
                   style={[
                     styles.difficultyButton,
                     difficulty === level && styles.selectedDifficulty
                   ]}
-                  onPress={() => setDifficulty(level)}
                 >
-                  <Text style={[
-                    styles.difficultyText,
-                    difficulty === level && styles.selectedDifficultyText
-                  ]}>
-                    {level}
-                  </Text>
-                </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.difficultyContent}
+                    onPress={() => setDifficulty(level)}
+                  >
+                    <Ionicons 
+                      name={icon} 
+                      size={20} 
+                      color={difficulty === level ? cosmicGray[50] : cosmicGray[300]}
+                    />
+                    <Text style={[
+                      styles.difficultyText,
+                      difficulty === level && styles.selectedDifficultyText
+                    ]}>
+                      {level}
+                    </Text>
+                  </TouchableOpacity>
+                </LinearGradient>
               ))}
             </View>
           </View>
-        </View>
+        </LinearGradient>
 
         {/* Questions Section (only for quiz type) */}
         {gameType === 'quiz' && (
@@ -388,8 +500,8 @@ export default function CreateGame() {
             <View style={styles.questionsHeader}>
               <Text style={styles.sectionTitle}>Questions ({questions.length})</Text>
               <TouchableOpacity style={styles.addButton} onPress={addQuestion}>
-                <Ionicons name="add" size={20} color="#fff" />
-                <Text style={styles.addButtonText}>Add Question</Text>
+                <Ionicons name="add-circle" size={18} color={cosmicGray[50]} />
+                <Text style={styles.addButtonText}>Add Cosmic Question</Text>
               </TouchableOpacity>
             </View>
 
@@ -449,8 +561,8 @@ export default function CreateGame() {
             <View style={styles.questionsHeader}>
               <Text style={styles.sectionTitle}>Question-Answer Pairs ({memoryPairs.length})</Text>
               <TouchableOpacity style={styles.addButton} onPress={addMemoryPair}>
-                <Ionicons name="add" size={20} color="#fff" />
-                <Text style={styles.addButtonText}>Add Pair</Text>
+                <Ionicons name="planet" size={18} color={cosmicGray[50]} />
+                <Text style={styles.addButtonText}>Add Memory Pair</Text>
               </TouchableOpacity>
             </View>
             
@@ -508,8 +620,8 @@ export default function CreateGame() {
             <View style={styles.questionsHeader}>
               <Text style={styles.sectionTitle}>Word Puzzles ({wordPuzzleWords.length})</Text>
               <TouchableOpacity style={styles.addButton} onPress={addWordPuzzle}>
-                <Ionicons name="add" size={20} color="#fff" />
-                <Text style={styles.addButtonText}>Add Word</Text>
+                <Ionicons name="telescope" size={18} color={cosmicGray[50]} />
+                <Text style={styles.addButtonText}>Add Puzzle Word</Text>
               </TouchableOpacity>
             </View>
 
@@ -560,9 +672,19 @@ export default function CreateGame() {
             onPress={createGame}
             disabled={loading}
           >
-            <Text style={styles.createButtonText}>
-              {loading ? (isEditing ? 'Saving...' : 'Creating...') : (isEditing ? 'Save Changes' : 'Create Game')}
-            </Text>
+            <LinearGradient
+              colors={loading ? [cosmicGray[600], cosmicGray[700]] : [starGold[500], starGold[700]]}
+              style={styles.createButtonGradient}
+            >
+              <Ionicons 
+                name={isEditing ? "save" : "rocket"} 
+                size={20} 
+                color={loading ? cosmicGray[300] : cosmicGray[50]} 
+              />
+              <Text style={[styles.createButtonText, loading && styles.disabledButtonText]}>
+                {loading ? (isEditing ? 'Saving...' : 'Creating...') : (isEditing ? 'Save Changes' : 'Create Cosmic Game')}
+              </Text>
+            </LinearGradient>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -575,11 +697,20 @@ export default function CreateGame() {
         onRequestClose={() => setShowPreview(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.previewModal}>
+          <LinearGradient
+            colors={[spacePurple[900], cosmicBlue[800], cosmicGray[900]]}
+            style={styles.previewModal}
+          >
             <View style={styles.previewHeader}>
-              <Text style={styles.previewTitle}>Game Preview</Text>
-              <TouchableOpacity onPress={() => setShowPreview(false)}>
-                <Ionicons name="close" size={24} color="#333" />
+              <View style={styles.previewTitleContainer}>
+                <Ionicons name="eye" size={24} color={starGold[400]} />
+                <Text style={styles.previewTitle}>Cosmic Game Preview</Text>
+              </View>
+              <TouchableOpacity 
+                onPress={() => setShowPreview(false)}
+                style={styles.previewCloseButton}
+              >
+                <Ionicons name="close" size={24} color={starGold[400]} />
               </TouchableOpacity>
             </View>
             
@@ -603,7 +734,7 @@ export default function CreateGame() {
                 </View>
               )}
             </ScrollView>
-          </View>
+          </LinearGradient>
         </View>
       </Modal>
     </SafeAreaView>
@@ -613,85 +744,166 @@ export default function CreateGame() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: cosmicGray[900],
+  },
+  backgroundGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+  },
+  galaxyAnimation: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    opacity: 0.3,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#4CAF50',
+    padding: 20,
+    paddingTop: 16,
+    backgroundColor: 'transparent',
+    zIndex: 10,
+  },
+  headerButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: `${cosmicGray[800]}80`,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: starGold[400],
+  },
+  headerTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#fff',
+    fontSize: 20,
+    fontWeight: '700',
+    color: starGold[400],
+    textShadowColor: cosmicGray[900],
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   content: {
     flex: 1,
-    padding: 16,
+    paddingHorizontal: 20,
   },
   section: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    shadowColor: cosmicBlue[400],
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 16,
-  },
-  gameTypeContainer: {
+  sectionHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
     gap: 12,
   },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: starGold[400],
+    textShadowColor: cosmicGray[900],
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  gameTypeContainer: {
+    gap: 16,
+  },
   gameTypeButton: {
-    flex: 1,
+    borderRadius: 16,
+    padding: 0,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    shadowColor: spacePurple[400],
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  gameTypeContent: {
+    flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#4CAF50',
-    backgroundColor: '#fff',
+    padding: 20,
+    gap: 16,
+  },
+  gameTypeIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  gameTypeTextContainer: {
+    flex: 1,
   },
   selectedGameType: {
-    backgroundColor: '#4CAF50',
+    borderColor: starGold[400],
+    borderWidth: 2,
   },
   gameTypeText: {
-    fontSize: 12,
-    color: '#4CAF50',
-    marginTop: 8,
-    textAlign: 'center',
+    fontSize: 16,
+    fontWeight: '700',
+    color: cosmicGray[300],
+    marginBottom: 4,
   },
   selectedGameTypeText: {
-    color: '#fff',
+    color: cosmicGray[50],
+  },
+  gameTypeDescription: {
+    fontSize: 12,
+    color: cosmicGray[400],
+  },
+  selectedGameTypeDescription: {
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  selectedIndicator: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
   },
   inputGroup: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   inputLabel: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
+    color: starGold[400],
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  inputWrapper: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   textInput: {
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 8,
-    padding: 12,
+    padding: 16,
     fontSize: 16,
-    backgroundColor: '#fafafa',
+    color: cosmicGray[50],
+    backgroundColor: 'transparent',
   },
   textArea: {
-    height: 80,
+    height: 100,
     textAlignVertical: 'top',
   },
   row: {
@@ -699,26 +911,37 @@ const styles = StyleSheet.create({
   },
   difficultyContainer: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 12,
   },
   difficultyButton: {
     flex: 1,
-    padding: 12,
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    shadowColor: nebulaPink[400],
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  difficultyContent: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    gap: 8,
   },
   selectedDifficulty: {
-    backgroundColor: '#4CAF50',
-    borderColor: '#4CAF50',
+    borderColor: starGold[400],
+    borderWidth: 2,
   },
   difficultyText: {
     fontSize: 14,
-    color: '#666',
+    fontWeight: '600',
+    color: cosmicGray[300],
   },
   selectedDifficultyText: {
-    color: '#fff',
+    color: cosmicGray[50],
     fontWeight: '600',
   },
   questionsHeader: {
@@ -730,33 +953,50 @@ const styles = StyleSheet.create({
   addButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#4CAF50',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
+    backgroundColor: nebulaPink[500],
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    shadowColor: nebulaPink[400],
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   addButtonText: {
-    color: '#fff',
+    color: cosmicGray[50],
     fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 4,
+    fontWeight: '700',
+    marginLeft: 6,
   },
   questionCard: {
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 16,
+    backgroundColor: `${cosmicGray[800]}60`,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    shadowColor: nebulaPink[400],
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
   },
   questionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   questionNumber: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#4CAF50',
+    fontWeight: '700',
+    color: starGold[400],
+    textShadowColor: cosmicGray[900],
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   removeButton: {
     padding: 4,
@@ -797,89 +1037,147 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     marginBottom: 32,
+    paddingHorizontal: 20,
   },
   createButton: {
-    backgroundColor: '#4CAF50',
-    paddingVertical: 16,
-    borderRadius: 12,
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    shadowColor: starGold[400],
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  createButtonGradient: {
+    paddingVertical: 20,
+    paddingHorizontal: 24,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
   },
   disabledButton: {
-    backgroundColor: '#ccc',
+    opacity: 0.6,
   },
   createButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    color: cosmicGray[50],
+    fontSize: 18,
+    fontWeight: '700',
+    textShadowColor: cosmicGray[900],
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  disabledButtonText: {
+    color: cosmicGray[300],
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(11, 17, 33, 0.9)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   previewModal: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
+    borderRadius: 20,
     width: '90%',
     maxHeight: '80%',
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    shadowColor: nebulaPink[400],
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 12,
   },
   previewHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: `${cosmicGray[800]}80`,
+  },
+  previewTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   previewTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
+    fontSize: 20,
+    fontWeight: '700',
+    color: starGold[400],
+    textShadowColor: cosmicGray[900],
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  previewCloseButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: `${cosmicGray[800]}80`,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: starGold[400],
   },
   previewContent: {
-    padding: 16,
+    padding: 24,
   },
   previewGameTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
+    fontSize: 24,
+    fontWeight: '800',
+    color: starGold[400],
+    marginBottom: 12,
+    textShadowColor: cosmicGray[900],
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   previewGameDescription: {
     fontSize: 16,
-    color: '#666',
-    marginBottom: 12,
+    color: cosmicGray[50],
+    marginBottom: 16,
+    lineHeight: 24,
+    opacity: 0.9,
   },
   previewGameMeta: {
     fontSize: 14,
-    color: '#4CAF50',
-    marginBottom: 20,
+    color: nebulaPink[400],
+    marginBottom: 24,
+    fontWeight: '600',
   },
   previewQuestions: {
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-    padding: 16,
+    backgroundColor: `${cosmicGray[800]}60`,
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   previewQuestionsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 12,
+    fontSize: 18,
+    fontWeight: '700',
+    color: starGold[400],
+    marginBottom: 16,
+    textShadowColor: cosmicGray[900],
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   previewQuestion: {
     fontSize: 16,
-    color: '#333',
-    marginBottom: 12,
+    color: cosmicGray[50],
+    marginBottom: 16,
+    lineHeight: 24,
   },
   previewOption: {
     fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
+    color: cosmicGray[300],
+    marginBottom: 8,
+    paddingLeft: 12,
   },
   previewCorrectOption: {
-    color: '#4CAF50',
+    color: nebulaPink[400],
     fontWeight: '600',
   },
   memoryCardsContainer: {
